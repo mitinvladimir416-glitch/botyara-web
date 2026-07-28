@@ -313,6 +313,9 @@ function ChatView() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [roles, setRoles] = useState(null);
+  const [role, setRole] = useState(() => localStorage.getItem("botyara_chat_role") || "friend");
+  const [showRolePicker, setShowRolePicker] = useState(false);
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -323,11 +326,22 @@ function ChatView() {
         /* если не получилось — просто начинаем с пустой истории */
       })
       .finally(() => setLoadingHistory(false));
+
+    api
+      .chatRoles()
+      .then(setRoles)
+      .catch(() => setRoles({}));
   }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, loading]);
+
+  function chooseRole(id) {
+    setRole(id);
+    localStorage.setItem("botyara_chat_role", id);
+    setShowRolePicker(false);
+  }
 
   async function send() {
     const text = input.trim();
@@ -337,7 +351,7 @@ function ChatView() {
     setInput("");
     setLoading(true);
     try {
-      const { reply } = await api.chat(nextHistory);
+      const { reply } = await api.chat(nextHistory, role);
       setHistory((h) => [...h, { role: "assistant", content: reply }]);
     } catch (e) {
       setHistory((h) => [...h, { role: "assistant", content: "Ошибка: " + e.message }]);
@@ -346,13 +360,41 @@ function ChatView() {
     }
   }
 
+  const currentRole = roles?.[role];
+
   return (
     <div className="view">
       <ScreenHeader title="Общение" subtitle="Пиши что угодно — отвечу с помощью нейросети" />
+
+      <div className="inline-actions" style={{ marginBottom: 12 }}>
+        <button className="btn-secondary" onClick={() => setShowRolePicker((v) => !v)}>
+          {currentRole ? `${currentRole.emoji} ${currentRole.label}` : "Выбери роль"} 🔄
+        </button>
+      </div>
+
+      {showRolePicker && roles && (
+        <div className="chip-row" style={{ marginBottom: 16, flexWrap: "wrap" }}>
+          {Object.entries(roles).map(([id, cfg]) => (
+            <button
+              key={id}
+              className="chip"
+              onClick={() => chooseRole(id)}
+              title={cfg.description}
+              style={id === role ? { borderColor: "var(--accent, #a855f7)" } : undefined}
+            >
+              {cfg.emoji} {cfg.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="chat-log">
         {loadingHistory && <p className="empty-hint">Загружаю историю…</p>}
         {!loadingHistory && history.length === 0 && (
-          <p className="empty-hint">Пока пусто — начни разговор ниже 👇</p>
+          <p className="empty-hint">
+            Пока пусто — начни разговор ниже 👇
+            {currentRole && ` Сейчас ты общаешься с ролью «${currentRole.label}».`}
+          </p>
         )}
         {history.map((m, i) => (
           <Bubble key={i} role={m.role}>
