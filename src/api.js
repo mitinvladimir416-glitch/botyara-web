@@ -74,6 +74,8 @@ export const api = {
   telegramLogin: (telegramData) =>
     request("/api/auth/telegram", { method: "POST", body: telegramData }),
   me: () => request("/api/me", { auth: true }),
+  linkEmail: (email, password) =>
+    request("/api/me/link-email", { method: "POST", auth: true, body: { email, password } }),
 
   // ---- Избранное ----
   listFavorites: () => request("/api/favorites", { auth: true }),

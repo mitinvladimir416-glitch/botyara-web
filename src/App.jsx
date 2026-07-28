@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { id: "prompts", label: "Промпты", icon: "🎨" },
   { id: "cover", label: "Обложка трека", icon: "🖼" },
   { id: "favorites", label: "Избранное", icon: "⭐" },
+  { id: "account", label: "Аккаунт", icon: "👤" },
 ];
 
 export default function App() {
@@ -65,6 +66,7 @@ export default function App() {
         {activeTab === "prompts" && <PromptsView />}
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
+        {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
       </main>
     </div>
   );
@@ -757,6 +759,90 @@ function FavoritesView() {
         <button className="btn-ghost" onClick={clearAll}>
           🗑 Очистить всё
         </button>
+      )}
+    </div>
+  );
+}
+
+// ==================== Аккаунт ====================
+
+function AccountView({ user, onUserUpdate }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLinkEmail(e) {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+    try {
+      await api.linkEmail(email, password);
+      const updated = await api.me();
+      onUserUpdate(updated);
+      setSuccess("Email привязан! Теперь можно входить и по нему.");
+      setEmail("");
+      setPassword("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="view">
+      <ScreenHeader title="Аккаунт" subtitle="Способы входа в этот аккаунт" />
+
+      <div className="result-card">
+        <p>
+          <strong>Telegram:</strong>{" "}
+          {user.telegram_username || user.telegram_first_name
+            ? `подключён (${user.telegram_first_name || ""} ${
+                user.telegram_username ? "@" + user.telegram_username : ""
+              })`
+            : "не подключён"}
+        </p>
+        <p>
+          <strong>Email:</strong> {user.email || "не привязан"}
+        </p>
+      </div>
+
+      {user.email ? (
+        <p className="empty-hint">
+          Email уже привязан — можешь входить на сайт как через Telegram, так и по email и паролю.
+        </p>
+      ) : (
+        <>
+          <p className="step-question">
+            Привяжи email и пароль к этому аккаунту — тогда сможешь зайти сюда же,
+            даже если временно не будет доступа к Telegram.
+          </p>
+          <form onSubmit={handleLinkEmail} className="auth-form">
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              placeholder="Придумай пароль"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={6}
+              required
+            />
+            {error && <p className="form-error">{error}</p>}
+            {success && <p className="saved-msg">{success}</p>}
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? "Секунду…" : "Привязать email"}
+            </button>
+          </form>
+        </>
       )}
     </div>
   );
