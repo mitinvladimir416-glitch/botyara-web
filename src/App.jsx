@@ -379,6 +379,95 @@ function ChatView() {
 
   return (
     <div className="view">
+      <style>{`
+        .bt-tabs-wrap {
+          position: relative;
+        }
+        .bt-tabs {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          padding: 4px 2px 10px;
+        }
+        .bt-tabs::-webkit-scrollbar {
+          display: none;
+        }
+        .bt-tabs-wrap::before,
+        .bt-tabs-wrap::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 10px;
+          width: 28px;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .bt-tabs-wrap::before {
+          left: 0;
+          background: linear-gradient(90deg, rgba(13,8,28,0.96), rgba(13,8,28,0));
+        }
+        .bt-tabs-wrap::after {
+          right: 0;
+          background: linear-gradient(270deg, rgba(13,8,28,0.96), rgba(13,8,28,0));
+        }
+        .bt-tab {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          padding: 9px 16px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.04);
+          color: rgba(255,255,255,0.75);
+          font-size: 14px;
+          font-weight: 500;
+          white-space: nowrap;
+          cursor: pointer;
+          transition: all 0.18s ease;
+        }
+        .bt-tab:hover {
+          background: rgba(255,255,255,0.09);
+          border-color: rgba(255,255,255,0.16);
+          color: #fff;
+        }
+        .bt-tab.active {
+          background: linear-gradient(135deg, #a855f7, #7c3aed);
+          border-color: transparent;
+          color: #fff;
+          font-weight: 700;
+          box-shadow: 0 4px 16px rgba(168, 85, 247, 0.45);
+        }
+        .bt-tab-emoji {
+          font-size: 16px;
+        }
+        .bt-toolbar {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: -2px;
+        }
+        .bt-reset-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 12px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: transparent;
+          color: rgba(255,255,255,0.5);
+          font-size: 12.5px;
+          cursor: pointer;
+          transition: all 0.18s ease;
+        }
+        .bt-reset-btn:hover {
+          color: #fca5a5;
+          border-color: rgba(252,165,165,0.35);
+          background: rgba(252,165,165,0.08);
+        }
+      `}</style>
+
       <ScreenHeader
         title="Общение"
         subtitle="Каждая вкладка — отдельный разговор со своей историей"
@@ -391,38 +480,31 @@ function ChatView() {
           zIndex: 10,
           background: "rgba(13, 8, 28, 0.96)",
           backdropFilter: "blur(6px)",
-          paddingBottom: 10,
+          paddingBottom: 4,
           marginBottom: 12,
         }}
       >
-        <div
-          className="chip-row"
-          style={{ flexWrap: "nowrap", overflowX: "auto", paddingBottom: 6 }}
-        >
-          {!roles && <p className="empty-hint">Загружаю вкладки…</p>}
-          {roles &&
-            Object.entries(roles).map(([id, cfg]) => (
-              <button
-                key={id}
-                className="chip"
-                onClick={() => switchTab(id)}
-                title={cfg.description}
-                style={{
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                  ...(id === activeRole
-                    ? { borderColor: "#a855f7", fontWeight: 700, background: "rgba(168,85,247,0.2)" }
-                    : {}),
-                }}
-              >
-                {cfg.emoji} {cfg.label}
-              </button>
-            ))}
+        <div className="bt-tabs-wrap">
+          <div className="bt-tabs">
+            {!roles && <p className="empty-hint">Загружаю вкладки…</p>}
+            {roles &&
+              Object.entries(roles).map(([id, cfg]) => (
+                <button
+                  key={id}
+                  className={id === activeRole ? "bt-tab active" : "bt-tab"}
+                  onClick={() => switchTab(id)}
+                  title={cfg.description}
+                >
+                  <span className="bt-tab-emoji">{cfg.emoji}</span>
+                  {cfg.label}
+                </button>
+              ))}
+          </div>
         </div>
 
-        <div className="inline-actions" style={{ marginTop: 8 }}>
-          <button className="btn-ghost small" onClick={resetChat}>
-            🗑 Начать эту вкладку заново
+        <div className="bt-toolbar">
+          <button className="bt-reset-btn" onClick={resetChat}>
+            🗑 Начать заново
           </button>
         </div>
       </div>
