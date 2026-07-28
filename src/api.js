@@ -51,7 +51,13 @@ async function request(path, { method = "GET", body, auth = false, isForm = fals
 export const api = {
   // ---- AI ----
   chat: (history, role) => request("/api/chat", { method: "POST", auth: true, body: { history, role } }),
-  history: () => request("/api/history", { auth: true }),
+  history: (persona) =>
+    request(`/api/history${persona ? `?persona=${encodeURIComponent(persona)}` : ""}`, { auth: true }),
+  clearHistory: (persona) =>
+    request(`/api/history${persona ? `?persona=${encodeURIComponent(persona)}` : ""}`, {
+      method: "DELETE",
+      auth: true,
+    }),
   chatRoles: () => request("/api/chat/roles"),
   translate: (text, target_lang) =>
     request("/api/translate", { method: "POST", body: { text, target_lang } }),

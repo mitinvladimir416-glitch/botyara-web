@@ -309,24 +309,15 @@ function Bubble({ role, children }) {
 // ==================== Общение ====================
 
 function ChatView() {
+  const [roles, setRoles] = useState(null);
+  const [activeRole, setActiveRole] = useState(() => localStorage.getItem("botyara_chat_role") || "default");
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
-  const [roles, setRoles] = useState(null);
-  const [role, setRole] = useState(() => localStorage.getItem("botyara_chat_role") || "default");
-  const [showRolePicker, setShowRolePicker] = useState(false);
   const endRef = useRef(null);
 
   useEffect(() => {
-    api
-      .history()
-      .then((data) => setHistory(data.history || []))
-      .catch(() => {
-        /* если не получилось — просто начинаем с пустой истории */
-      })
-      .finally(() => setLoadingHistory(false));
-
     api
       .chatRoles()
       .then(setRoles)
@@ -334,13 +325,22 @@ function ChatView() {
   }, []);
 
   useEffect(() => {
+    setLoadingHistory(true);
+    api
+      .history(activeRole)
+      .then((data) => setHistory(data.history || []))
+      .catch(() => setHistory([]))
+      .finally(() => setLoadingHistory(false));
+  }, [activeRole]);
+
+  useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, loading]);
 
-  function chooseRole(id) {
-    setRole(id);
+  function switchTab(id) {
+    if (id === activeRole) return;
+    setActiveRole(id);
     localStorage.setItem("botyara_chat_role", id);
-    setShowRolePicker(false);
   }
 
   async function send() {
@@ -351,7 +351,7 @@ function ChatView() {
     setInput("");
     setLoading(true);
     try {
-      const { reply } = await api.chat(nextHistory, role);
+      const { reply } = await api.chat(nextHistory, activeRole);
       setHistory((h) => [...h, { role: "assistant", content: reply }]);
     } catch (e) {
       setHistory((h) => [...h, { role: "assistant", content: "Ошибка: " + e.message }]);
@@ -360,58 +360,80 @@ function ChatView() {
     }
   }
 
-  const currentRole = roles?.[role];
+  async function resetChat() {
+    const sure = window.confirm(
+      activeRole === "default"
+        ? "Очистить историю обычного общения? Она общая с ботом в Telegram — там она тоже пропадёт."
+        : `Очистить историю разговора с ролью «${currentRole?.label || ""}»? Эта вкладка не связана с ботом, пропадёт только здесь.`
+    );
+    if (!sure) return;
+    try {
+      await api.clearHistory(activeRole);
+      setHistory([]);
+    } catch (e) {
+      alert("Не удалось очистить историю: " + e.message);
+    }
+  }
+
+  const currentRole = roles?.[activeRole];
 
   return (
     <div className="view">
-      <ScreenHeader title="Общение" subtitle="Пиши что угодно — отвечу с помощью нейросети" />
+      <ScreenHeader
+        title="Общение"
+        subtitle="Каждая вкладка — отдельный разговор со своей историей"
+      />
 
-      <div className="inline-actions" style={{ marginBottom: 12 }}>
-        <button className="btn-secondary" onClick={() => setShowRolePicker(true)}>
-          {currentRole ? `${currentRole.emoji} ${currentRole.label}` : "Выбери, с кем общаться"} · сменить
-        </button>
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
+          background: "rgba(13, 8, 28, 0.96)",
+          backdropFilter: "blur(6px)",
+          paddingBottom: 10,
+          marginBottom: 12,
+        }}
+      >
+        <div
+          className="chip-row"
+          style={{ flexWrap: "nowrap", overflowX: "auto", paddingBottom: 6 }}
+        >
+          {!roles && <p className="empty-hint">Загружаю вкладки…</p>}
+          {roles &&
+            Object.entries(roles).map(([id, cfg]) => (
+              <button
+                key={id}
+                className="chip"
+                onClick={() => switchTab(id)}
+                title={cfg.description}
+                style={{
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  ...(id === activeRole
+                    ? { borderColor: "#a855f7", fontWeight: 700, background: "rgba(168,85,247,0.2)" }
+                    : {}),
+                }}
+              >
+                {cfg.emoji} {cfg.label}
+              </button>
+            ))}
+        </div>
+
+        <div className="inline-actions" style={{ marginTop: 8 }}>
+          <button className="btn-ghost small" onClick={resetChat}>
+            🗑 Начать эту вкладку заново
+          </button>
+        </div>
       </div>
 
-      {showRolePicker && (
-        <div className="result-card" style={{ marginBottom: 16 }}>
-          <div className="inline-actions" style={{ justifyContent: "space-between", marginBottom: 10 }}>
-            <strong>С кем хочешь общаться?</strong>
-            <button className="btn-ghost small" onClick={() => setShowRolePicker(false)}>
-              ◀️ Назад
-            </button>
-          </div>
-
-          {!roles && <p className="empty-hint">Загружаю роли…</p>}
-
-          {roles && (
-            <div className="chip-row" style={{ flexWrap: "wrap" }}>
-              {Object.entries(roles).map(([id, cfg]) => (
-                <button
-                  key={id}
-                  className="chip"
-                  onClick={() => chooseRole(id)}
-                  title={cfg.description}
-                  style={
-                    id === role
-                      ? { borderColor: "#a855f7", fontWeight: 700, background: "rgba(168,85,247,0.15)" }
-                      : undefined
-                  }
-                >
-                  {id === role ? "✅ " : ""}
-                  {cfg.emoji} {cfg.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="chat-log">
-        {loadingHistory && <p className="empty-hint">Загружаю историю…</p>}
+        {loadingHistory && <p className="empty-hint">Загружаю переписку…</p>}
         {!loadingHistory && history.length === 0 && (
           <p className="empty-hint">
-            Пока пусто — начни разговор ниже 👇
-            {currentRole && ` Сейчас ты общаешься с ролью «${currentRole.label}».`}
+            {activeRole === "default"
+              ? "Пока пусто — начни обычный разговор ниже 👇"
+              : `Пока пусто — начни общение с ролью «${currentRole?.label || ""}» ниже 👇`}
           </p>
         )}
         {history.map((m, i) => (
@@ -420,11 +442,23 @@ function ChatView() {
           </Bubble>
         ))}
         {loading && <Bubble role="assistant">печатает…</Bubble>}
-        <div ref={endRef} />
+        <div ref={endRef} style={{ height: 8 }} />
       </div>
-      <div className="composer">
+      <div
+        className="composer"
+        style={{
+          position: "sticky",
+          bottom: 0,
+          zIndex: 10,
+          background: "rgba(13, 8, 28, 0.96)",
+          backdropFilter: "blur(6px)",
+          paddingTop: 10,
+        }}
+      >
         <input
-          placeholder="Напиши сообщение…"
+          placeholder={
+            currentRole ? `Напиши сообщение (${currentRole.label})…` : "Напиши сообщение…"
+          }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
