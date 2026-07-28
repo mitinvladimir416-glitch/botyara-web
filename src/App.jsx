@@ -314,7 +314,7 @@ function ChatView() {
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [roles, setRoles] = useState(null);
-  const [role, setRole] = useState(() => localStorage.getItem("botyara_chat_role") || "friend");
+  const [role, setRole] = useState(() => localStorage.getItem("botyara_chat_role") || "default");
   const [showRolePicker, setShowRolePicker] = useState(false);
   const endRef = useRef(null);
 
@@ -367,24 +367,42 @@ function ChatView() {
       <ScreenHeader title="Общение" subtitle="Пиши что угодно — отвечу с помощью нейросети" />
 
       <div className="inline-actions" style={{ marginBottom: 12 }}>
-        <button className="btn-secondary" onClick={() => setShowRolePicker((v) => !v)}>
-          {currentRole ? `${currentRole.emoji} ${currentRole.label}` : "Выбери роль"} 🔄
+        <button className="btn-secondary" onClick={() => setShowRolePicker(true)}>
+          {currentRole ? `${currentRole.emoji} ${currentRole.label}` : "Выбери, с кем общаться"} · сменить
         </button>
       </div>
 
-      {showRolePicker && roles && (
-        <div className="chip-row" style={{ marginBottom: 16, flexWrap: "wrap" }}>
-          {Object.entries(roles).map(([id, cfg]) => (
-            <button
-              key={id}
-              className="chip"
-              onClick={() => chooseRole(id)}
-              title={cfg.description}
-              style={id === role ? { borderColor: "var(--accent, #a855f7)" } : undefined}
-            >
-              {cfg.emoji} {cfg.label}
+      {showRolePicker && (
+        <div className="result-card" style={{ marginBottom: 16 }}>
+          <div className="inline-actions" style={{ justifyContent: "space-between", marginBottom: 10 }}>
+            <strong>С кем хочешь общаться?</strong>
+            <button className="btn-ghost small" onClick={() => setShowRolePicker(false)}>
+              ◀️ Назад
             </button>
-          ))}
+          </div>
+
+          {!roles && <p className="empty-hint">Загружаю роли…</p>}
+
+          {roles && (
+            <div className="chip-row" style={{ flexWrap: "wrap" }}>
+              {Object.entries(roles).map(([id, cfg]) => (
+                <button
+                  key={id}
+                  className="chip"
+                  onClick={() => chooseRole(id)}
+                  title={cfg.description}
+                  style={
+                    id === role
+                      ? { borderColor: "#a855f7", fontWeight: 700, background: "rgba(168,85,247,0.15)" }
+                      : undefined
+                  }
+                >
+                  {id === role ? "✅ " : ""}
+                  {cfg.emoji} {cfg.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
