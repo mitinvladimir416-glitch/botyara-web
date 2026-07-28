@@ -80,7 +80,13 @@ function AuthScreen({ onAuthed }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const telegramRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowAuth(true), 2800);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     window.onTelegramAuth = async (tgUser) => {
@@ -122,20 +128,23 @@ function AuthScreen({ onAuthed }) {
   return (
     <div className="auth-screen">
       <style>{`
+        .auth-screen { position: relative; }
         @keyframes botyaraTitleIn {
           from { opacity: 0; transform: scale(0.6) translateY(-24px); }
           to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        @keyframes botyaraSlideLeft {
-          from { opacity: 0; transform: translateX(-130%); }
-          to   { opacity: 1; transform: translateX(0); }
         }
         @keyframes botyaraSlideRight {
           from { opacity: 0; transform: translateX(130%); }
           to   { opacity: 1; transform: translateX(0); }
         }
+        @keyframes botyaraSlideLeft {
+          from { opacity: 0; transform: translateX(-130%); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
         .botyara-hero-title {
-          position: relative;
+          position: absolute;
+          top: 50%;
+          left: 50%;
           z-index: 2;
           text-align: center;
           font-size: clamp(2rem, 6vw, 3.2rem);
@@ -143,8 +152,16 @@ function AuthScreen({ onAuthed }) {
           letter-spacing: 0.12em;
           color: #fff;
           text-shadow: 0 0 24px rgba(168, 85, 247, 0.85), 0 0 48px rgba(168, 85, 247, 0.5);
-          margin: 0 0 28px;
+          margin: 0;
           animation: botyaraTitleIn 0.7s ease-out both;
+          transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .botyara-hero-title.hide {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.85);
+        }
+        .botyara-hero-title:not(.hide) {
+          transform: translate(-50%, -50%);
         }
         .botyara-side-image {
           position: fixed;
@@ -156,25 +173,36 @@ function AuthScreen({ onAuthed }) {
           z-index: 0;
           filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
         }
-        .botyara-side-image.left {
-          left: -10px;
-          animation: botyaraSlideLeft 0.9s ease-out 0.55s forwards;
-        }
         .botyara-side-image.right {
           right: -10px;
-          animation: botyaraSlideRight 0.9s ease-out 1.05s forwards;
+          animation: botyaraSlideRight 0.7s ease-out 1.0s forwards;
+        }
+        .botyara-side-image.left {
+          left: -10px;
+          animation: botyaraSlideLeft 0.7s ease-out 1.7s forwards;
         }
         @media (max-width: 900px) {
           .botyara-side-image { display: none; }
         }
+        .auth-card {
+          transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .auth-card.entering {
+          opacity: 0;
+          transform: translateY(24px);
+          pointer-events: none;
+        }
       `}</style>
 
-      <img src="/bot-left.jpg" alt="" className="botyara-side-image left" />
       <img src="/bot-right.jpg" alt="" className="botyara-side-image right" />
+      <img src="/bot-left.jpg" alt="" className="botyara-side-image left" />
 
-      <h1 className="botyara-hero-title">БОТЯРА</h1>
+      <h1 className={showAuth ? "botyara-hero-title hide" : "botyara-hero-title"}>БОТЯРА</h1>
 
-      <div className="auth-card" style={{ position: "relative", zIndex: 2 }}>
+      <div
+        className={showAuth ? "auth-card" : "auth-card entering"}
+        style={{ position: "relative", zIndex: 2 }}
+      >
         <div className="brand">
           <span className="brand-mark">Б</span>
           <div>
