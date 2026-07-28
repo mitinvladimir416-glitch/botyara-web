@@ -50,7 +50,8 @@ async function request(path, { method = "GET", body, auth = false, isForm = fals
 
 export const api = {
   // ---- AI ----
-  chat: (history) => request("/api/chat", { method: "POST", body: { history } }),
+  chat: (history) => request("/api/chat", { method: "POST", auth: true, body: { history } }),
+  history: () => request("/api/history", { auth: true }),
   translate: (text, target_lang) =>
     request("/api/translate", { method: "POST", body: { text, target_lang } }),
   promptTopics: () => request("/api/prompt/topics"),

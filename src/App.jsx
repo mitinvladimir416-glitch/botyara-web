@@ -229,7 +229,18 @@ function ChatView() {
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const endRef = useRef(null);
+
+  useEffect(() => {
+    api
+      .history()
+      .then((data) => setHistory(data.history || []))
+      .catch(() => {
+        /* если не получилось — просто начинаем с пустой истории */
+      })
+      .finally(() => setLoadingHistory(false));
+  }, []);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -256,7 +267,10 @@ function ChatView() {
     <div className="view">
       <ScreenHeader title="Общение" subtitle="Пиши что угодно — отвечу с помощью нейросети" />
       <div className="chat-log">
-        {history.length === 0 && <p className="empty-hint">Пока пусто — начни разговор ниже 👇</p>}
+        {loadingHistory && <p className="empty-hint">Загружаю историю…</p>}
+        {!loadingHistory && history.length === 0 && (
+          <p className="empty-hint">Пока пусто — начни разговор ниже 👇</p>
+        )}
         {history.map((m, i) => (
           <Bubble key={i} role={m.role}>
             {m.content}
