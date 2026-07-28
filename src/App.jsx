@@ -121,7 +121,60 @@ function AuthScreen({ onAuthed }) {
 
   return (
     <div className="auth-screen">
-      <div className="auth-card">
+      <style>{`
+        @keyframes botyaraTitleIn {
+          from { opacity: 0; transform: scale(0.6) translateY(-24px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes botyaraSlideLeft {
+          from { opacity: 0; transform: translateX(-130%); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes botyaraSlideRight {
+          from { opacity: 0; transform: translateX(130%); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        .botyara-hero-title {
+          position: relative;
+          z-index: 2;
+          text-align: center;
+          font-size: clamp(2rem, 6vw, 3.2rem);
+          font-weight: 900;
+          letter-spacing: 0.12em;
+          color: #fff;
+          text-shadow: 0 0 24px rgba(168, 85, 247, 0.85), 0 0 48px rgba(168, 85, 247, 0.5);
+          margin: 0 0 28px;
+          animation: botyaraTitleIn 0.7s ease-out both;
+        }
+        .botyara-side-image {
+          position: fixed;
+          top: 50%;
+          width: min(24vw, 340px);
+          transform: translateY(-50%);
+          opacity: 0;
+          pointer-events: none;
+          z-index: 0;
+          filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
+        }
+        .botyara-side-image.left {
+          left: -10px;
+          animation: botyaraSlideLeft 0.9s ease-out 0.55s forwards;
+        }
+        .botyara-side-image.right {
+          right: -10px;
+          animation: botyaraSlideRight 0.9s ease-out 1.05s forwards;
+        }
+        @media (max-width: 900px) {
+          .botyara-side-image { display: none; }
+        }
+      `}</style>
+
+      <img src="/bot-left.jpg" alt="" className="botyara-side-image left" />
+      <img src="/bot-right.jpg" alt="" className="botyara-side-image right" />
+
+      <h1 className="botyara-hero-title">БОТЯРА</h1>
+
+      <div className="auth-card" style={{ position: "relative", zIndex: 2 }}>
         <div className="brand">
           <span className="brand-mark">Б</span>
           <div>
