@@ -16,6 +16,11 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState("chat");
+  const [viewMode, setViewMode] = useState(() => {
+    const saved = localStorage.getItem("botyara_view_mode");
+    if (saved === "mobile" || saved === "desktop") return saved;
+    return window.innerWidth <= 780 ? "mobile" : "desktop";
+  });
 
   useEffect(() => {
     const token = getToken();
@@ -29,6 +34,30 @@ export default function App() {
       .catch(() => setToken(null))
       .finally(() => setCheckingAuth(false));
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("botyara_view_mode", viewMode);
+    document.documentElement.classList.remove("force-mobile", "force-desktop");
+    document.documentElement.classList.add(viewMode === "mobile" ? "force-mobile" : "force-desktop");
+
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      if (viewMode === "desktop") {
+        const desktopWidth = 1024;
+        const scale = Math.min(1, window.innerWidth / desktopWidth);
+        meta.setAttribute(
+          "content",
+          `width=${desktopWidth}, initial-scale=${scale}, minimum-scale=0.25, maximum-scale=2`
+        );
+      } else {
+        meta.setAttribute("content", "width=device-width, initial-scale=1");
+      }
+    }
+  }, [viewMode]);
+
+  function toggleViewMode() {
+    setViewMode((m) => (m === "mobile" ? "desktop" : "mobile"));
+  }
 
   const handleAuthed = (data) => {
     setToken(data.access_token);
@@ -59,6 +88,8 @@ export default function App() {
         onChange={setActiveTab}
         user={user}
         onLogout={handleLogout}
+        viewMode={viewMode}
+        onToggleViewMode={toggleViewMode}
       />
       <main className="content">
         {activeTab === "chat" && <ChatView />}
@@ -260,7 +291,7 @@ function AuthScreen({ onAuthed }) {
 
 // ==================== Каркас приложения ====================
 
-function Sidebar({ active, onChange, user, onLogout }) {
+function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode }) {
   const displayName = user.telegram_first_name || user.email || "Пользователь";
   return (
     <aside className="sidebar">
@@ -281,6 +312,9 @@ function Sidebar({ active, onChange, user, onLogout }) {
         ))}
       </nav>
       <div className="sidebar-footer">
+        <button className="device-toggle-btn" onClick={onToggleViewMode} title="Переключить вид сайта">
+          {viewMode === "mobile" ? "🖥 Версия для ПК" : "📱 Мобильная версия"}
+        </button>
         <div className="user-chip">
           <span className="user-avatar">{displayName[0]?.toUpperCase()}</span>
           <span className="user-name">{displayName}</span>
