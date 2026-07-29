@@ -10,9 +10,20 @@ const NAV_ITEMS = [
   { id: "cover", label: "Обложка трека", icon: "🖼" },
   { id: "favorites", label: "Избранное", icon: "⭐" },
   { id: "gallery", label: "Галерея", icon: "🖼️" },
-  { id: "publicchat", label: "Общий чат", icon: "🌍" },
   { id: "account", label: "Аккаунт", icon: "👤" },
 ];
+
+const CATEGORY_LABELS = {
+  suno: "🎵 Suno",
+  image: "🖼 Картинка",
+  video: "🎬 Видео",
+  cover: "🖼️ Обложка трека",
+  other: "💬 Разное",
+};
+
+// Заполни своими ссылками — они используются в кнопках "Уведомления/Связь" и "Поддержать автора"
+const AUTHOR_TELEGRAM_URL = "https://t.me/Tipo4ek31";
+const AUTHOR_EMAIL = "mitinvladimir416@gmail.com";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -86,6 +97,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <ParticlesBG />
+      <TopBar />
       <Sidebar
         active={activeTab}
         onChange={setActiveTab}
@@ -101,9 +113,9 @@ export default function App() {
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
         {activeTab === "gallery" && <GalleryView />}
-        {activeTab === "publicchat" && <PublicChatView />}
         {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
       </main>
+      <ChatWidget />
     </div>
   );
 }
@@ -334,6 +346,20 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
         <button className="device-toggle-btn" onClick={onToggleViewMode} title="Переключить вид сайта">
           {viewMode === "mobile" ? "🖥 Версия для ПК" : "📱 Мобильная версия"}
         </button>
+        <ContactButton
+          className="btn-ghost"
+          intro="Как удобнее написать — выбирай:"
+          panelStyle={{ bottom: 40, left: 0 }}
+        >
+          ✉️ Связь со мной
+        </ContactButton>
+        <ContactButton
+          className="btn-ghost"
+          intro="Спасибо, что хочешь поддержать проект! Просто напиши — подскажу, как это лучше сделать 💜"
+          panelStyle={{ bottom: 40, left: 0 }}
+        >
+          💜 Поддержать проект
+        </ContactButton>
         <div className="user-chip">
           {user.avatar_base64 ? (
             <img
@@ -843,7 +869,7 @@ function PromptsView() {
     const lastBot = [...history].reverse().find((m) => m.role === "assistant");
     if (!lastBot) return;
     try {
-      await api.addFavorite(lastBot.content);
+      await api.addFavorite(lastBot.content, topic);
       setSavedMsg("Сохранено ⭐");
       setTimeout(() => setSavedMsg(""), 2000);
     } catch (e) {
@@ -1044,7 +1070,7 @@ function CoverView() {
 
   async function saveResult() {
     try {
-      await api.addFavorite(result);
+      await api.addFavorite(result, "cover");
     } catch {
       /* тихо игнорируем — не критично */
     }
@@ -1193,6 +1219,7 @@ function FavoritesView() {
   const [error, setError] = useState("");
   const [publishingId, setPublishingId] = useState(null);
   const [publishMsg, setPublishMsg] = useState({});
+  const [activeCategory, setActiveCategory] = useState(null);
 
   const load = useCallback(() => {
     api
@@ -1232,16 +1259,40 @@ function FavoritesView() {
     }
   }
 
+  const presentCategories = [...new Set((items || []).map((i) => i.category || "other"))];
+  const visibleItems = activeCategory ? (items || []).filter((i) => (i.category || "other") === activeCategory) : items;
+
   return (
     <div className="view">
-      <ScreenHeader title="Избранное" subtitle="Сохранённые промпты" />
+      <ScreenHeader title="Избранное" subtitle="Сохранённые промпты, разложенные по папкам" />
       {error && <p className="form-error">{error}</p>}
       {items && items.length === 0 && (
         <p className="empty-hint">Пока пусто. Сохраняй промпты кнопкой ⭐ под готовым результатом.</p>
       )}
+
+      {items && items.length > 0 && (
+        <div className="chip-row">
+          <button className={activeCategory === null ? "chip active" : "chip"} onClick={() => setActiveCategory(null)}>
+            Все ({items.length})
+          </button>
+          {presentCategories.map((cat) => (
+            <button
+              key={cat}
+              className={activeCategory === cat ? "chip active" : "chip"}
+              onClick={() => setActiveCategory(cat)}
+            >
+              {CATEGORY_LABELS[cat] || cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="fav-list">
-        {items?.map((item) => (
+        {visibleItems?.map((item) => (
           <div key={item.id} className="fav-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
+            <p className="empty-hint" style={{ fontSize: 12, margin: "0 0 4px" }}>
+              {CATEGORY_LABELS[item.category] || CATEGORY_LABELS.other}
+            </p>
             <p>{item.content}</p>
             <div className="inline-actions" style={{ marginTop: 8 }}>
               <button className="btn-ghost small" onClick={() => remove(item.id)}>
@@ -1501,6 +1552,7 @@ function GalleryView() {
   const [posts, setPosts] = useState(null);
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(null);
 
   const load = useCallback(() => {
     api
@@ -1523,6 +1575,9 @@ function GalleryView() {
     );
   }
 
+  const presentCategories = [...new Set((posts || []).map((p) => p.category || "other"))];
+  const visiblePosts = activeCategory ? (posts || []).filter((p) => (p.category || "other") === activeCategory) : posts;
+
   return (
     <div className="view">
       <ScreenHeader title="Галерея" subtitle="Промпты, которыми поделились пользователи" />
@@ -1532,18 +1587,46 @@ function GalleryView() {
           Пока пусто — опубликуй что-нибудь из "Избранного" кнопкой "📢 В галерею".
         </p>
       )}
+
+      {posts && posts.length > 0 && (
+        <div className="chip-row">
+          <button className={activeCategory === null ? "chip active" : "chip"} onClick={() => setActiveCategory(null)}>
+            Все ({posts.length})
+          </button>
+          {presentCategories.map((cat) => (
+            <button
+              key={cat}
+              className={activeCategory === cat ? "chip active" : "chip"}
+              onClick={() => setActiveCategory(cat)}
+            >
+              {CATEGORY_LABELS[cat] || cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="fav-list">
-        {posts?.map((post) => (
+        {visiblePosts?.map((post) => (
           <button
             key={post.id}
             className="fav-item"
             style={{ textAlign: "left", cursor: "pointer", flexDirection: "column", alignItems: "stretch" }}
             onClick={() => setSelectedId(post.id)}
           >
+            <p className="empty-hint" style={{ fontSize: 12, margin: "0 0 4px" }}>
+              {CATEGORY_LABELS[post.category] || CATEGORY_LABELS.other}
+            </p>
             <p style={{ margin: 0 }}>
               {post.content.length > 220 ? post.content.slice(0, 220) + "…" : post.content}
             </p>
             <div className="inline-actions" style={{ marginTop: 8 }}>
+              {post.author_avatar ? (
+                <img
+                  src={post.author_avatar}
+                  alt=""
+                  style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }}
+                />
+              ) : null}
               <span className="empty-hint" style={{ fontSize: 13 }}>
                 {post.is_mine ? "Ты" : post.author}
               </span>
@@ -1616,7 +1699,18 @@ function GalleryPostDetail({ postId, onBack }) {
       {post && (
         <>
           <div className="result-card">
-            <p className="result-label">{post.is_mine ? "Ты" : post.author}</p>
+            <div className="inline-actions" style={{ marginBottom: 6 }}>
+              {post.author_avatar ? (
+                <img
+                  src={post.author_avatar}
+                  alt=""
+                  style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover" }}
+                />
+              ) : null}
+              <p className="result-label" style={{ margin: 0 }}>
+                {post.is_mine ? "Ты" : post.author}
+              </p>
+            </div>
             <p style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
           </div>
 
@@ -1633,6 +1727,13 @@ function GalleryPostDetail({ postId, onBack }) {
             {post.comments.length === 0 && <p className="empty-hint">Пока нет комментариев.</p>}
             {post.comments.map((c) => (
               <div key={c.id} className="fav-item">
+                {c.author_avatar ? (
+                  <img
+                    src={c.author_avatar}
+                    alt=""
+                    style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                  />
+                ) : null}
                 <div>
                   <p className="result-label" style={{ marginBottom: 4 }}>
                     {c.author}
@@ -1663,30 +1764,44 @@ function GalleryPostDetail({ postId, onBack }) {
 
 // ==================== Общий публичный чат ====================
 
-function PublicChatView() {
-  const [messages, setMessages] = useState(null);
+function ChatWidget() {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([]);
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
+  const [unseen, setUnseen] = useState(0);
   const endRef = useRef(null);
+  const lastCountRef = useRef(0);
+  const openRef = useRef(false);
+  openRef.current = open;
 
   const load = useCallback(() => {
     api
       .listPublicChat()
-      .then(setMessages)
+      .then((data) => {
+        setMessages(data);
+        if (!openRef.current && data.length > lastCountRef.current) {
+          setUnseen((u) => u + (data.length - lastCountRef.current));
+        }
+        lastCountRef.current = data.length;
+      })
       .catch((e) => setError(e.message));
   }, []);
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 4000);
+    const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, [load]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (open) {
+      setUnseen(0);
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [open, messages]);
 
   async function send() {
     const text = input.trim();
@@ -1697,9 +1812,9 @@ function PublicChatView() {
       const res = await api.sendPublicChat(text);
       if (res.status === "approved") {
         setInput("");
-        load();
+        load(); // мгновенное обновление сразу после отправки, не дожидаясь опроса
       } else {
-        setSendError(`🚫 Сообщение отклонено модерацией: ${res.reject_reason || "нарушение правил"}`);
+        setSendError(`🚫 ${res.reject_reason || "Отклонено модерацией"}`);
       }
     } catch (e) {
       setSendError("Ошибка: " + e.message);
@@ -1709,50 +1824,166 @@ function PublicChatView() {
   }
 
   return (
-    <div className="view bt-wide">
-      <ScreenHeader title="Общий чат" subtitle="Все сообщения видны всем пользователям — общайтесь открыто" />
-      {error && <p className="form-error">{error}</p>}
-
-      <div className="chat-log">
-        {messages === null && <p className="empty-hint">Загружаю сообщения…</p>}
-        {messages && messages.length === 0 && (
-          <p className="empty-hint">Пока пусто — напиши первое сообщение 👇</p>
-        )}
-        {messages?.map((m) => (
-          <div key={m.id} style={{ alignSelf: m.is_mine ? "flex-end" : "flex-start", maxWidth: "85%" }}>
-            {!m.is_mine && (
-              <p className="empty-hint" style={{ fontSize: 12, margin: "0 0 2px 4px" }}>
-                {m.author}
-              </p>
-            )}
-            <Bubble role={m.is_mine ? "user" : "assistant"}>{m.content}</Bubble>
-          </div>
-        ))}
-        <div ref={endRef} style={{ height: 8 }} />
-      </div>
-
-      <div
-        className="composer"
-        style={{
-          position: "sticky",
-          bottom: 0,
-          zIndex: 10,
-          background: "rgba(13, 8, 28, 0.96)",
-          backdropFilter: "blur(6px)",
-          paddingTop: 10,
-        }}
-      >
-        <input
-          placeholder="Написать в общий чат…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-        />
-        <button className="btn-primary" onClick={send} disabled={sending}>
-          {sending ? "…" : "Отправить"}
+    <div className="chat-widget">
+      {!open && (
+        <button className="chat-widget-bubble" onClick={() => setOpen(true)} title="Общий чат">
+          💬
+          {unseen > 0 && <span className="chat-widget-badge">{unseen > 9 ? "9+" : unseen}</span>}
         </button>
+      )}
+      {open && (
+        <div className="chat-widget-panel">
+          <div className="chat-widget-header">
+            <span>🌍 Общий чат</span>
+            <button className="chat-widget-close" onClick={() => setOpen(false)}>
+              ✕
+            </button>
+          </div>
+          {error && <p className="form-error" style={{ margin: "6px 10px" }}>{error}</p>}
+          <div className="chat-widget-messages">
+            {messages.length === 0 && <p className="empty-hint">Пока пусто — напиши первым 👋</p>}
+            {messages.map((m) => (
+              <div key={m.id} className={m.is_mine ? "chat-widget-msg mine" : "chat-widget-msg"}>
+                {m.author_avatar ? (
+                  <img src={m.author_avatar} alt="" className="chat-widget-avatar" />
+                ) : (
+                  <span className="chat-widget-avatar-fallback">{m.author?.[0]?.toUpperCase()}</span>
+                )}
+                <div>
+                  <p className="chat-widget-author">{m.author}</p>
+                  <p className="chat-widget-bubble-text">{m.content}</p>
+                </div>
+              </div>
+            ))}
+            <div ref={endRef} />
+          </div>
+          <div className="chat-widget-composer">
+            <input
+              placeholder="Написать…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && send()}
+            />
+            <button className="btn-primary" onClick={send} disabled={sending}>
+              ➤
+            </button>
+          </div>
+          {sendError && <p className="form-error" style={{ margin: "4px 10px" }}>{sendError}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== Верхняя панель: уведомления, связь, поддержка ====================
+
+// Кнопка со всплывающим окошком "как со мной связаться" — переиспользуется и в верхней панели, и в сайдбаре
+function ContactButton({ className, intro, panelStyle, children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <button className={className} onClick={() => setOpen((v) => !v)}>
+        {children}
+      </button>
+      {open && (
+        <div className="contact-popover" style={panelStyle}>
+          <div className="inline-actions" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+            <strong style={{ fontSize: 13 }}>Связаться с автором</strong>
+            <button className="btn-ghost small" onClick={() => setOpen(false)}>
+              ✕
+            </button>
+          </div>
+          {intro && (
+            <p className="empty-hint" style={{ marginTop: 0, marginBottom: 10 }}>
+              {intro}
+            </p>
+          )}
+          <a
+            className="btn-secondary"
+            href={AUTHOR_TELEGRAM_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={{ display: "block", textAlign: "center", marginBottom: 8, textDecoration: "none" }}
+          >
+            💬 Написать в Telegram
+          </a>
+          <a
+            className="btn-secondary"
+            href={`mailto:${AUTHOR_EMAIL}`}
+            style={{ display: "block", textAlign: "center", textDecoration: "none" }}
+          >
+            ✉️ Написать на почту
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopBar() {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState(null);
+  const [unseen, setUnseen] = useState(0);
+
+  useEffect(() => {
+    api
+      .listAnnouncements()
+      .then((data) => {
+        setItems(data);
+        const lastSeenId = Number(localStorage.getItem("botyara_last_seen_announcement") || 0);
+        const newer = data.filter((a) => a.id > lastSeenId).length;
+        setUnseen(newer);
+      })
+      .catch(() => setItems([]));
+  }, []);
+
+  function toggleOpen() {
+    setOpen((v) => {
+      const next = !v;
+      if (next && items && items.length > 0) {
+        localStorage.setItem("botyara_last_seen_announcement", String(items[0].id));
+        setUnseen(0);
+      }
+      return next;
+    });
+  }
+
+  return (
+    <div className="top-actions">
+      <div style={{ position: "relative" }}>
+        <button className="top-action-btn" onClick={toggleOpen} title="Обновления">
+          🔔
+          {unseen > 0 && <span className="top-action-badge">{unseen > 9 ? "9+" : unseen}</span>}
+        </button>
+        {open && (
+          <div className="announcements-panel">
+            <p className="step-question" style={{ marginTop: 0 }}>
+              📢 Обновления
+            </p>
+            {items === null && <p className="empty-hint">Загружаю…</p>}
+            {items && items.length === 0 && <p className="empty-hint">Пока новостей нет.</p>}
+            {items?.map((a) => (
+              <div key={a.id} className="fav-item" style={{ marginBottom: 8 }}>
+                <p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{a.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      {sendError && <p className="form-error">{sendError}</p>}
+      <ContactButton
+        className="top-action-btn"
+        intro="Как удобнее написать — выбирай:"
+        panelStyle={{ top: 50, right: 0 }}
+      >
+        ✉️
+      </ContactButton>
+      <ContactButton
+        className="top-action-btn"
+        intro="Спасибо, что хочешь поддержать проект! Просто напиши — подскажу, как это лучше сделать 💜"
+        panelStyle={{ top: 50, right: 0 }}
+      >
+        💜
+      </ContactButton>
     </div>
   );
 }
