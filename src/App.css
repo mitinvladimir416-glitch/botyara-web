@@ -561,7 +561,7 @@ textarea::placeholder {
   white-space: pre-wrap;
 }
 
-/* ==================== Адаптив ==================== */
+/* ==================== Адаптив (запасной вариант по ширине экрана) ==================== */
 
 @media (max-width: 780px) {
   .app-shell {
@@ -591,5 +591,130 @@ textarea::placeholder {
   }
   .content {
     padding: 20px;
+  }
+  .view.bt-wide {
+    max-width: 100%;
+  }
+}
+
+/* ==================== Переключатель ПК/Моб ==================== */
+
+.device-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.device-toggle-btn:hover {
+  border-color: var(--violet-glow);
+  color: var(--text-primary);
+}
+
+/* ---- Принудительная мобильная версия (кнопкой), независимо от реальной ширины экрана ---- */
+
+.force-mobile .app-shell {
+  flex-direction: column;
+}
+.force-mobile .sidebar {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+}
+.force-mobile .sidebar-brand {
+  padding: 0 10px 0 0;
+}
+.force-mobile .sidebar-nav {
+  flex-direction: row;
+  flex: none;
+}
+.force-mobile .nav-item span:last-child {
+  display: none;
+}
+.force-mobile .sidebar-footer {
+  border-top: none;
+  padding-top: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.force-mobile .user-name {
+  display: none;
+}
+.force-mobile .device-toggle-btn {
+  padding: 8px;
+  font-size: 0;
+}
+.force-mobile .device-toggle-btn::before {
+  content: "🔁";
+  font-size: 16px;
+}
+.force-mobile .content {
+  padding: 16px;
+}
+.force-mobile .view.bt-wide {
+  max-width: 100%;
+}
+.force-mobile .bubble {
+  max-width: 92%;
+  font-size: 14px;
+}
+.force-mobile .topic-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* ---- Принудительная десктопная версия — перебивает мобильную вёрстку даже на узком экране ---- */
+
+.force-desktop .app-shell {
+  flex-direction: row;
+  min-width: 900px;
+}
+.force-desktop .sidebar {
+  width: 240px;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 20px 14px;
+  overflow-x: visible;
+  border-right: 1px solid var(--border);
+  border-bottom: none;
+}
+.force-desktop .sidebar-brand {
+  padding: 6px 10px 24px;
+}
+.force-desktop .sidebar-nav {
+  flex-direction: column;
+  flex: 1;
+}
+.force-desktop .nav-item span:last-child {
+  display: inline;
+}
+.force-desktop .sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.force-desktop .content {
+  padding: 32px 40px;
+}
+
+/* Если реальный экран уже узкий (телефон), а включена версия для ПК —
+   даём странице скроллиться по горизонтали, как в браузерном "показать версию для ПК" */
+@media (max-width: 899px) {
+  .force-desktop {
+    overflow-x: auto;
   }
 }
