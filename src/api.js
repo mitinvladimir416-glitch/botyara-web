@@ -121,6 +121,8 @@ export const api = {
   addGalleryComment: (id, content) =>
     request(`/api/gallery/${id}/comments`, { method: "POST", auth: true, body: { content } }),
   deleteGalleryPost: (id) => request(`/api/gallery/${id}`, { method: "DELETE", auth: true }),
+  deleteGalleryComment: (postId, commentId) =>
+    request(`/api/gallery/${postId}/comments/${commentId}`, { method: "DELETE", auth: true }),
 
   // ---- Профиль ----
   updateProfile: (displayName, avatarFile) => {
@@ -134,4 +136,6 @@ export const api = {
   listPublicChat: () => request("/api/public-chat", { auth: true }),
   sendPublicChat: (content) =>
     request("/api/public-chat", { method: "POST", auth: true, body: { content } }),
+  deletePublicChatMessage: (id) => request(`/api/public-chat/${id}`, { method: "DELETE", auth: true }),
+  clearPublicChat: () => request("/api/public-chat", { method: "DELETE", auth: true }),
 };
