@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ботяра — AI-помощник</title>
     <meta name="description" content="Общение, перевод, промпты для музыки, картинок и видео — всё в одном месте." />
+    <script>
+      // Редирект со всех второстепенных доменов на основной — так вход через Telegram
+      // (который привязан только к одному домену) работает откуда угодно.
+      (function () {
+        var canonicalHost = "24promtbot.ru";
+        if (window.location.hostname !== canonicalHost) {
+          window.location.replace(
+            "https://" + canonicalHost + window.location.pathname + window.location.search + window.location.hash
+          );
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
