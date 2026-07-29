@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { id: "prompts", label: "Промпты", icon: "🎨" },
   { id: "cover", label: "Обложка трека", icon: "🖼" },
   { id: "favorites", label: "Избранное", icon: "⭐" },
+  { id: "gallery", label: "Галерея", icon: "🖼️" },
   { id: "account", label: "Аккаунт", icon: "👤" },
 ];
 
@@ -98,6 +99,7 @@ export default function App() {
         {activeTab === "prompts" && <PromptsView />}
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
+        {activeTab === "gallery" && <GalleryView />}
         {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
       </main>
     </div>
@@ -1178,6 +1180,8 @@ function CoverView() {
 function FavoritesView() {
   const [items, setItems] = useState(null);
   const [error, setError] = useState("");
+  const [publishingId, setPublishingId] = useState(null);
+  const [publishMsg, setPublishMsg] = useState({});
 
   const load = useCallback(() => {
     api
@@ -1198,6 +1202,25 @@ function FavoritesView() {
     load();
   }
 
+  async function publish(id) {
+    setPublishingId(id);
+    setPublishMsg((m) => ({ ...m, [id]: "" }));
+    try {
+      const res = await api.publishToGallery(id);
+      setPublishMsg((m) => ({
+        ...m,
+        [id]:
+          res.status === "approved"
+            ? "✅ Опубликовано в галерее!"
+            : `🚫 Отклонено модерацией: ${res.reject_reason || "нарушение правил"}`,
+      }));
+    } catch (e) {
+      setPublishMsg((m) => ({ ...m, [id]: "Ошибка: " + e.message }));
+    } finally {
+      setPublishingId(null);
+    }
+  }
+
   return (
     <div className="view">
       <ScreenHeader title="Избранное" subtitle="Сохранённые промпты" />
@@ -1207,11 +1230,22 @@ function FavoritesView() {
       )}
       <div className="fav-list">
         {items?.map((item) => (
-          <div key={item.id} className="fav-item">
+          <div key={item.id} className="fav-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
             <p>{item.content}</p>
-            <button className="btn-ghost small" onClick={() => remove(item.id)}>
-              Удалить
-            </button>
+            <div className="inline-actions" style={{ marginTop: 8 }}>
+              <button className="btn-ghost small" onClick={() => remove(item.id)}>
+                Удалить
+              </button>
+              <button
+                className="btn-secondary"
+                disabled={publishingId === item.id}
+                onClick={() => publish(item.id)}
+                style={{ padding: "6px 14px", fontSize: 13 }}
+              >
+                {publishingId === item.id ? "Публикую…" : "📢 В галерею"}
+              </button>
+              {publishMsg[item.id] && <span className="saved-msg">{publishMsg[item.id]}</span>}
+            </div>
           </div>
         ))}
       </div>
@@ -1375,6 +1409,172 @@ function AccountView({ user, onUserUpdate }) {
               {loading ? "Секунду…" : "Привязать email"}
             </button>
           </form>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ==================== Галерея промптов ====================
+
+function GalleryView() {
+  const [posts, setPosts] = useState(null);
+  const [error, setError] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+
+  const load = useCallback(() => {
+    api
+      .listGallery()
+      .then(setPosts)
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(load, [load]);
+
+  if (selectedId) {
+    return (
+      <GalleryPostDetail
+        postId={selectedId}
+        onBack={() => {
+          setSelectedId(null);
+          load();
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="view">
+      <ScreenHeader title="Галерея" subtitle="Промпты, которыми поделились пользователи" />
+      {error && <p className="form-error">{error}</p>}
+      {posts && posts.length === 0 && (
+        <p className="empty-hint">
+          Пока пусто — опубликуй что-нибудь из "Избранного" кнопкой "📢 В галерею".
+        </p>
+      )}
+      <div className="fav-list">
+        {posts?.map((post) => (
+          <button
+            key={post.id}
+            className="fav-item"
+            style={{ textAlign: "left", cursor: "pointer", flexDirection: "column", alignItems: "stretch" }}
+            onClick={() => setSelectedId(post.id)}
+          >
+            <p style={{ margin: 0 }}>
+              {post.content.length > 220 ? post.content.slice(0, 220) + "…" : post.content}
+            </p>
+            <div className="inline-actions" style={{ marginTop: 8 }}>
+              <span className="empty-hint" style={{ fontSize: 13 }}>
+                {post.is_mine ? "Ты" : post.author}
+              </span>
+              <span className="empty-hint" style={{ fontSize: 13 }}>
+                💬 {post.comment_count}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GalleryPostDetail({ postId, onBack }) {
+  const [post, setPost] = useState(null);
+  const [error, setError] = useState("");
+  const [comment, setComment] = useState("");
+  const [sending, setSending] = useState(false);
+  const [commentMsg, setCommentMsg] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .getGalleryPost(postId)
+      .then(setPost)
+      .catch((e) => setError(e.message));
+  }, [postId]);
+
+  useEffect(load, [load]);
+
+  async function sendComment() {
+    const text = comment.trim();
+    if (!text || sending) return;
+    setSending(true);
+    setCommentMsg("");
+    try {
+      const res = await api.addGalleryComment(postId, text);
+      if (res.status === "approved") {
+        setComment("");
+        setCommentMsg("");
+        load();
+      } else {
+        setCommentMsg(`🚫 Комментарий отклонён модерацией: ${res.reject_reason || "нарушение правил"}`);
+      }
+    } catch (e) {
+      setCommentMsg("Ошибка: " + e.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function removePost() {
+    if (!window.confirm("Удалить этот пост из галереи?")) return;
+    try {
+      await api.deleteGalleryPost(postId);
+      onBack();
+    } catch (e) {
+      alert("Не удалось удалить: " + e.message);
+    }
+  }
+
+  return (
+    <div className="view">
+      <ScreenHeader title="Галерея" subtitle="Пост и комментарии" />
+      {error && <p className="form-error">{error}</p>}
+      <button className="btn-ghost" onClick={onBack} style={{ marginBottom: 10 }}>
+        ◀️ Назад к галерее
+      </button>
+
+      {post && (
+        <>
+          <div className="result-card">
+            <p className="result-label">{post.is_mine ? "Ты" : post.author}</p>
+            <p style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
+          </div>
+
+          {post.is_mine && (
+            <button className="btn-ghost" onClick={removePost}>
+              🗑 Удалить пост
+            </button>
+          )}
+
+          <p className="step-question" style={{ marginTop: 16 }}>
+            Комментарии ({post.comments.length})
+          </p>
+          <div className="fav-list">
+            {post.comments.length === 0 && <p className="empty-hint">Пока нет комментариев.</p>}
+            {post.comments.map((c) => (
+              <div key={c.id} className="fav-item">
+                <div>
+                  <p className="result-label" style={{ marginBottom: 4 }}>
+                    {c.author}
+                  </p>
+                  <p>{c.content}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="composer" style={{ marginTop: 12 }}>
+            <input
+              placeholder="Написать комментарий…"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendComment()}
+            />
+            <button className="btn-primary" onClick={sendComment} disabled={sending}>
+              {sending ? "…" : "Отправить"}
+            </button>
+          </div>
+          {commentMsg && <p className="form-error">{commentMsg}</p>}
         </>
       )}
     </div>
