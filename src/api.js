@@ -109,4 +109,13 @@ export const api = {
     request("/api/favorites", { method: "POST", auth: true, body: { content } }),
   deleteFavorite: (id) => request(`/api/favorites/${id}`, { method: "DELETE", auth: true }),
   clearFavorites: () => request("/api/favorites", { method: "DELETE", auth: true }),
+
+  // ---- Галерея промптов ----
+  publishToGallery: (favoriteId) =>
+    request("/api/gallery/publish", { method: "POST", auth: true, body: { favorite_id: favoriteId } }),
+  listGallery: () => request("/api/gallery", { auth: true }),
+  getGalleryPost: (id) => request(`/api/gallery/${id}`, { auth: true }),
+  addGalleryComment: (id, content) =>
+    request(`/api/gallery/${id}/comments`, { method: "POST", auth: true, body: { content } }),
+  deleteGalleryPost: (id) => request(`/api/gallery/${id}`, { method: "DELETE", auth: true }),
 };
