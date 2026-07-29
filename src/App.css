@@ -1059,3 +1059,94 @@ textarea::placeholder {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
   z-index: 70;
 }
+
+/* ==================== Мобильные правки (ПК-версию не трогаем) ==================== */
+
+.force-mobile .chat-widget {
+  bottom: 82px;
+  right: 12px;
+}
+.force-mobile .chat-widget-bubble {
+  width: 46px;
+  height: 46px;
+  font-size: 19px;
+}
+.force-mobile .chat-widget-panel {
+  right: -4px;
+}
+
+.force-mobile .top-actions {
+  top: 62px;
+  right: 10px;
+  gap: 6px;
+}
+.force-mobile .top-action-btn {
+  width: 34px;
+  height: 34px;
+  font-size: 15px;
+}
+.force-mobile .announcements-panel,
+.force-mobile .contact-popover {
+  width: min(220px, calc(100vw - 40px));
+}
+
+.force-mobile .composer {
+  gap: 6px;
+}
+.force-mobile .composer input {
+  font-size: 14px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.force-mobile .composer .btn-primary,
+.force-mobile .composer button:not(.btn-primary) {
+  padding: 10px 12px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.force-mobile .sidebar-footer .contact-popover {
+  bottom: 0;
+  left: auto;
+  right: 0;
+}
+
+@media (max-width: 780px) {
+  .chat-widget {
+    bottom: 82px;
+    right: 12px;
+  }
+  .chat-widget-bubble {
+    width: 46px;
+    height: 46px;
+    font-size: 19px;
+  }
+  .top-actions {
+    top: 62px;
+    right: 10px;
+    gap: 6px;
+  }
+  .top-action-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+  }
+  .announcements-panel,
+  .contact-popover {
+    width: min(220px, calc(100vw - 40px));
+  }
+  .composer {
+    gap: 6px;
+  }
+  .composer input {
+    font-size: 14px;
+    padding: 10px 12px;
+    min-width: 0;
+  }
+  .composer .btn-primary,
+  .composer button:not(.btn-primary) {
+    padding: 10px 12px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+}
