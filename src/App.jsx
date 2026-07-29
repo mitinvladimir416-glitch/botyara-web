@@ -378,21 +378,31 @@ function ChatView() {
   const currentRole = roles?.[activeRole];
 
   return (
-    <div className="view">
+    <div className="view bt-wide">
       <style>{`
         .bt-tabs-wrap {
           position: relative;
+        }
+        .view.bt-wide {
+          max-width: 1100px;
+          width: 100%;
         }
         .bt-tabs {
           display: flex;
           gap: 8px;
           overflow-x: auto;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-          padding: 4px 2px 10px;
+          scrollbar-width: thin;
+          padding: 4px 2px 12px;
         }
         .bt-tabs::-webkit-scrollbar {
-          display: none;
+          height: 6px;
+        }
+        .bt-tabs::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.18);
+          border-radius: 999px;
+        }
+        .bt-tabs::-webkit-scrollbar-track {
+          background: transparent;
         }
         .bt-tabs-wrap::before,
         .bt-tabs-wrap::after {
@@ -485,7 +495,14 @@ function ChatView() {
         }}
       >
         <div className="bt-tabs-wrap">
-          <div className="bt-tabs">
+          <div
+            className="bt-tabs"
+            onWheel={(e) => {
+              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.currentTarget.scrollLeft += e.deltaY;
+              }
+            }}
+          >
             {!roles && <p className="empty-hint">Загружаю вкладки…</p>}
             {roles &&
               Object.entries(roles).map(([id, cfg]) => (
