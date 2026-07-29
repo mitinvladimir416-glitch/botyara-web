@@ -105,10 +105,13 @@ export const api = {
 
   // ---- Избранное ----
   listFavorites: () => request("/api/favorites", { auth: true }),
-  addFavorite: (content) =>
-    request("/api/favorites", { method: "POST", auth: true, body: { content } }),
+  addFavorite: (content, category = "other") =>
+    request("/api/favorites", { method: "POST", auth: true, body: { content, category } }),
   deleteFavorite: (id) => request(`/api/favorites/${id}`, { method: "DELETE", auth: true }),
   clearFavorites: () => request("/api/favorites", { method: "DELETE", auth: true }),
+
+  // ---- Оповещения об обновлениях ----
+  listAnnouncements: () => request("/api/announcements", { auth: true }),
 
   // ---- Галерея промптов ----
   publishToGallery: (favoriteId) =>
