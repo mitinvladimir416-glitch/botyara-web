@@ -70,6 +70,19 @@ export const api = {
     form.append("desired_change", desiredChange);
     return request("/api/prompt/image-from-photo", { method: "POST", body: form, isForm: true });
   },
+  promptVideoFrames: (target, description, firstFrameFile, lastFrameFile) => {
+    const form = new FormData();
+    form.append("target", target || "");
+    form.append("description", description || "");
+    if (firstFrameFile) form.append("first_frame", firstFrameFile);
+    if (lastFrameFile) form.append("last_frame", lastFrameFile);
+    return request("/api/prompt/video-frames", { method: "POST", body: form, isForm: true });
+  },
+  transcribeVoice: (blob) => {
+    const form = new FormData();
+    form.append("audio", blob, "voice.webm");
+    return request("/api/voice-transcribe", { method: "POST", auth: true, body: form, isForm: true });
+  },
   coverFormats: () => request("/api/cover/formats"),
   cover: (payload) => request("/api/cover", { method: "POST", body: payload }),
 
