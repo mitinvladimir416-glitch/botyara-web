@@ -83,6 +83,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <ParticlesBG />
       <Sidebar
         active={activeTab}
         onChange={setActiveTab}
@@ -99,6 +100,18 @@ export default function App() {
         {activeTab === "favorites" && <FavoritesView />}
         {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
       </main>
+    </div>
+  );
+}
+
+// ==================== Плавающие частицы (фоновая атмосфера) ==================== 
+
+function ParticlesBG() {
+  return (
+    <div className="particles-bg" aria-hidden="true">
+      {Array.from({ length: 18 }).map((_, i) => (
+        <span key={i} className="particle" />
+      ))}
     </div>
   );
 }
@@ -224,6 +237,8 @@ function AuthScreen({ onAuthed }) {
           pointer-events: none;
         }
       `}</style>
+
+      <ParticlesBG />
 
       <img src="/bot-right.jpg" alt="" className="botyara-side-image right" />
       <img src="/bot-left.jpg" alt="" className="botyara-side-image left" />
