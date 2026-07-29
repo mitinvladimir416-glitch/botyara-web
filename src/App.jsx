@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { id: "cover", label: "Обложка трека", icon: "🖼" },
   { id: "favorites", label: "Избранное", icon: "⭐" },
   { id: "gallery", label: "Галерея", icon: "🖼️" },
+  { id: "publicchat", label: "Общий чат", icon: "🌍" },
   { id: "account", label: "Аккаунт", icon: "👤" },
 ];
 
@@ -100,6 +101,7 @@ export default function App() {
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
         {activeTab === "gallery" && <GalleryView />}
+        {activeTab === "publicchat" && <PublicChatView />}
         {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
       </main>
     </div>
@@ -309,7 +311,7 @@ function AuthScreen({ onAuthed }) {
 // ==================== Каркас приложения ====================
 
 function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode }) {
-  const displayName = user.telegram_first_name || user.email || "Пользователь";
+  const displayName = user.display_name || user.telegram_first_name || user.email || "Пользователь";
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -333,7 +335,16 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
           {viewMode === "mobile" ? "🖥 Версия для ПК" : "📱 Мобильная версия"}
         </button>
         <div className="user-chip">
-          <span className="user-avatar">{displayName[0]?.toUpperCase()}</span>
+          {user.avatar_base64 ? (
+            <img
+              src={user.avatar_base64}
+              alt=""
+              className="user-avatar"
+              style={{ objectFit: "cover" }}
+            />
+          ) : (
+            <span className="user-avatar">{displayName[0]?.toUpperCase()}</span>
+          )}
           <span className="user-name">{displayName}</span>
         </div>
         <button className="btn-ghost" onClick={onLogout}>
@@ -1267,12 +1278,46 @@ function AccountView({ user, onUserUpdate }) {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [displayName, setDisplayName] = useState(user.display_name || "");
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(user.avatar_base64 || "");
+  const [profileMsg, setProfileMsg] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [profileLoading, setProfileLoading] = useState(false);
+
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [pwError, setPwError] = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
   const [pwLoading, setPwLoading] = useState(false);
+
+  function handleAvatarChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setAvatarPreview(reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSaveProfile(e) {
+    e.preventDefault();
+    setProfileError("");
+    setProfileMsg("");
+    setProfileLoading(true);
+    try {
+      await api.updateProfile(displayName, avatarFile);
+      const updated = await api.me();
+      onUserUpdate(updated);
+      setProfileMsg("Профиль сохранён!");
+      setAvatarFile(null);
+    } catch (e) {
+      setProfileError(e.message);
+    } finally {
+      setProfileLoading(false);
+    }
+  }
 
   async function handleLinkEmail(e) {
     e.preventDefault();
@@ -1313,6 +1358,41 @@ function AccountView({ user, onUserUpdate }) {
   return (
     <div className="view">
       <ScreenHeader title="Аккаунт" subtitle="Способы входа в этот аккаунт" />
+
+      <p className="step-question">Профиль</p>
+      <form onSubmit={handleSaveProfile} className="auth-form" style={{ marginBottom: 20 }}>
+        <div className="inline-actions">
+          {avatarPreview ? (
+            <img
+              src={avatarPreview}
+              alt=""
+              style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover" }}
+            />
+          ) : (
+            <span
+              className="user-avatar"
+              style={{ width: 64, height: 64, fontSize: 24 }}
+            >
+              {(displayName || user.email || "Б")[0]?.toUpperCase()}
+            </span>
+          )}
+          <label className="btn-secondary" style={{ cursor: "pointer" }}>
+            Выбрать фото
+            <input type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: "none" }} />
+          </label>
+        </div>
+        <input
+          placeholder="Как тебя называть?"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          maxLength={50}
+        />
+        {profileError && <p className="form-error">{profileError}</p>}
+        {profileMsg && <p className="saved-msg">{profileMsg}</p>}
+        <button type="submit" className="btn-primary" disabled={profileLoading}>
+          {profileLoading ? "Сохраняю…" : "Сохранить профиль"}
+        </button>
+      </form>
 
       <div className="result-card">
         <p>
@@ -1577,6 +1657,102 @@ function GalleryPostDetail({ postId, onBack }) {
           {commentMsg && <p className="form-error">{commentMsg}</p>}
         </>
       )}
+    </div>
+  );
+}
+
+// ==================== Общий публичный чат ====================
+
+function PublicChatView() {
+  const [messages, setMessages] = useState(null);
+  const [error, setError] = useState("");
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const endRef = useRef(null);
+
+  const load = useCallback(() => {
+    api
+      .listPublicChat()
+      .then(setMessages)
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 4000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || sending) return;
+    setSending(true);
+    setSendError("");
+    try {
+      const res = await api.sendPublicChat(text);
+      if (res.status === "approved") {
+        setInput("");
+        load();
+      } else {
+        setSendError(`🚫 Сообщение отклонено модерацией: ${res.reject_reason || "нарушение правил"}`);
+      }
+    } catch (e) {
+      setSendError("Ошибка: " + e.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="view bt-wide">
+      <ScreenHeader title="Общий чат" subtitle="Все сообщения видны всем пользователям — общайтесь открыто" />
+      {error && <p className="form-error">{error}</p>}
+
+      <div className="chat-log">
+        {messages === null && <p className="empty-hint">Загружаю сообщения…</p>}
+        {messages && messages.length === 0 && (
+          <p className="empty-hint">Пока пусто — напиши первое сообщение 👇</p>
+        )}
+        {messages?.map((m) => (
+          <div key={m.id} style={{ alignSelf: m.is_mine ? "flex-end" : "flex-start", maxWidth: "85%" }}>
+            {!m.is_mine && (
+              <p className="empty-hint" style={{ fontSize: 12, margin: "0 0 2px 4px" }}>
+                {m.author}
+              </p>
+            )}
+            <Bubble role={m.is_mine ? "user" : "assistant"}>{m.content}</Bubble>
+          </div>
+        ))}
+        <div ref={endRef} style={{ height: 8 }} />
+      </div>
+
+      <div
+        className="composer"
+        style={{
+          position: "sticky",
+          bottom: 0,
+          zIndex: 10,
+          background: "rgba(13, 8, 28, 0.96)",
+          backdropFilter: "blur(6px)",
+          paddingTop: 10,
+        }}
+      >
+        <input
+          placeholder="Написать в общий чат…"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+        />
+        <button className="btn-primary" onClick={send} disabled={sending}>
+          {sending ? "…" : "Отправить"}
+        </button>
+      </div>
+      {sendError && <p className="form-error">{sendError}</p>}
     </div>
   );
 }
