@@ -349,7 +349,11 @@ function ChatView() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const endRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   useEffect(() => {
     api
@@ -377,8 +381,8 @@ function ChatView() {
     localStorage.setItem("botyara_chat_role", id);
   }
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText) {
+    const text = (overrideText ?? input).trim();
     if (!text || loading) return;
     const nextHistory = [...history, { role: "user", content: text }];
     setHistory(nextHistory);
@@ -391,6 +395,42 @@ function ChatView() {
       setHistory((h) => [...h, { role: "assistant", content: "Ошибка: " + e.message }]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function toggleRecording() {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setTranscribing(true);
+        try {
+          const { text } = await api.transcribeVoice(blob);
+          if (text && text.trim()) {
+            await send(text.trim());
+          }
+        } catch (e) {
+          setHistory((h) => [...h, { role: "assistant", content: "Не удалось распознать голос: " + e.message }]);
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch (e) {
+      alert("Не удалось получить доступ к микрофону: " + e.message);
     }
   }
 
@@ -590,13 +630,29 @@ function ChatView() {
       >
         <input
           placeholder={
-            currentRole ? `Напиши сообщение (${currentRole.label})…` : "Напиши сообщение…"
+            isRecording
+              ? "🔴 Идёт запись — нажми на микрофон ещё раз, чтобы остановить"
+              : transcribing
+              ? "Распознаю голос…"
+              : currentRole
+              ? `Напиши сообщение (${currentRole.label})…`
+              : "Напиши сообщение…"
           }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
+          disabled={isRecording || transcribing}
         />
-        <button className="btn-primary" onClick={send} disabled={loading}>
+        <button
+          className={isRecording ? "btn-secondary" : "btn-ghost"}
+          onClick={toggleRecording}
+          disabled={transcribing || loading}
+          title={isRecording ? "Остановить запись" : "Записать голосовое сообщение"}
+          style={isRecording ? { color: "#f87171", borderColor: "#f87171" } : undefined}
+        >
+          {isRecording ? "⏹" : "🎤"}
+        </button>
+        <button className="btn-primary" onClick={() => send()} disabled={loading || isRecording || transcribing}>
           Отправить
         </button>
       </div>
@@ -699,6 +755,13 @@ function PromptsView() {
   const [loading, setLoading] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
 
+  // Шаг "кадры сцены" — только для темы "video"
+  const [framesChoice, setFramesChoice] = useState(null); // null | "skip" | "done"
+  const [firstFrameFile, setFirstFrameFile] = useState(null);
+  const [lastFrameFile, setLastFrameFile] = useState(null);
+  const [frameDescription, setFrameDescription] = useState("");
+  const [framesLoading, setFramesLoading] = useState(false);
+
   useEffect(() => {
     api.promptTopics().then(setTopics).catch(() => setTopics({}));
   }, []);
@@ -707,6 +770,28 @@ function PromptsView() {
     setTopic(null);
     setTarget(null);
     setHistory([]);
+    setFramesChoice(null);
+    setFirstFrameFile(null);
+    setLastFrameFile(null);
+    setFrameDescription("");
+  }
+
+  async function submitFrames() {
+    if (framesLoading) return;
+    setFramesLoading(true);
+    try {
+      const { reply } = await api.promptVideoFrames(target, frameDescription, firstFrameFile, lastFrameFile);
+      setHistory([
+        { role: "user", content: frameDescription || "[Прислал кадры сцены]" },
+        { role: "assistant", content: reply },
+      ]);
+      setFramesChoice("done");
+    } catch (e) {
+      setHistory([{ role: "assistant", content: "Ошибка: " + e.message }]);
+      setFramesChoice("done");
+    } finally {
+      setFramesLoading(false);
+    }
   }
 
   async function send(text) {
@@ -772,6 +857,58 @@ function PromptsView() {
               {t}
             </button>
           ))}
+        </div>
+        <button className="btn-ghost" onClick={resetToTopics}>
+          ◀️ К темам
+        </button>
+      </div>
+    );
+  }
+
+  if (topic === "video" && framesChoice === null) {
+    return (
+      <div className="view">
+        <ScreenHeader
+          title={`${topics[topic].label} · ${target}`}
+          subtitle="Есть у тебя референсные кадры сцены?"
+        />
+        <p className="step-question">
+          Пришли картинками первый и/или последний кадр сцены — учту их визуально при составлении
+          промпта. Можно указать только один кадр, оба, или пропустить и просто описать словами.
+        </p>
+
+        <div className="field-row">
+          <label className="empty-hint" style={{ display: "block", marginBottom: 6 }}>
+            Первый кадр (необязательно)
+          </label>
+          <input type="file" accept="image/*" onChange={(e) => setFirstFrameFile(e.target.files[0] || null)} />
+        </div>
+        <div className="field-row">
+          <label className="empty-hint" style={{ display: "block", marginBottom: 6 }}>
+            Последний кадр (необязательно)
+          </label>
+          <input type="file" accept="image/*" onChange={(e) => setLastFrameFile(e.target.files[0] || null)} />
+        </div>
+
+        <textarea
+          className="textarea"
+          placeholder="Опиши сцену словами (что происходит, движение камеры и т.д.)…"
+          value={frameDescription}
+          onChange={(e) => setFrameDescription(e.target.value)}
+          rows={4}
+        />
+
+        <div className="inline-actions">
+          <button
+            className="btn-primary"
+            onClick={submitFrames}
+            disabled={framesLoading || (!firstFrameFile && !lastFrameFile && !frameDescription.trim())}
+          >
+            {framesLoading ? "Составляю…" : "Составить промпт"}
+          </button>
+          <button className="btn-ghost" onClick={() => setFramesChoice("skip")}>
+            ✏️ Только словами, без кадров
+          </button>
         </div>
         <button className="btn-ghost" onClick={resetToTopics}>
           ◀️ К темам
