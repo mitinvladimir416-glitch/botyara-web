@@ -1081,6 +1081,13 @@ function AccountView({ user, onUserUpdate }) {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [pwSuccess, setPwSuccess] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
+
   async function handleLinkEmail(e) {
     e.preventDefault();
     setError("");
@@ -1097,6 +1104,23 @@ function AccountView({ user, onUserUpdate }) {
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleChangePassword(e) {
+    e.preventDefault();
+    setPwError("");
+    setPwSuccess("");
+    setPwLoading(true);
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      setPwSuccess("Пароль изменён.");
+      setCurrentPassword("");
+      setNewPassword("");
+    } catch (e) {
+      setPwError(e.message);
+    } finally {
+      setPwLoading(false);
     }
   }
 
@@ -1119,9 +1143,58 @@ function AccountView({ user, onUserUpdate }) {
       </div>
 
       {user.email ? (
-        <p className="empty-hint">
-          Email уже привязан — можешь входить на сайт как через Telegram, так и по email и паролю.
-        </p>
+        <>
+          <p className="empty-hint">
+            Email уже привязан — можешь входить на сайт как через Telegram, так и по email и паролю.
+          </p>
+
+          {!showChangePassword ? (
+            <button className="btn-secondary" onClick={() => setShowChangePassword(true)}>
+              🔑 Сменить пароль
+            </button>
+          ) : (
+            <>
+              <p className="step-question">Смена пароля</p>
+              <form onSubmit={handleChangePassword} className="auth-form">
+                <input
+                  type="password"
+                  placeholder="Текущий пароль"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Новый пароль"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                  required
+                />
+                {pwError && <p className="form-error">{pwError}</p>}
+                {pwSuccess && <p className="saved-msg">{pwSuccess}</p>}
+                <div className="inline-actions">
+                  <button type="submit" className="btn-primary" disabled={pwLoading}>
+                    {pwLoading ? "Секунду…" : "Сохранить новый пароль"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => {
+                      setShowChangePassword(false);
+                      setPwError("");
+                      setPwSuccess("");
+                      setCurrentPassword("");
+                      setNewPassword("");
+                    }}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+        </>
       ) : (
         <>
           <p className="step-question">
