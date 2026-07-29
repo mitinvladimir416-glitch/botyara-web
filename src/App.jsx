@@ -112,10 +112,10 @@ export default function App() {
         {activeTab === "prompts" && <PromptsView />}
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
-        {activeTab === "gallery" && <GalleryView />}
+        {activeTab === "gallery" && <GalleryView isAdmin={user.is_admin} />}
         {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
       </main>
-      <ChatWidget />
+      <ChatWidget isAdmin={user.is_admin} />
     </div>
   );
 }
@@ -1548,7 +1548,7 @@ function AccountView({ user, onUserUpdate }) {
 
 // ==================== Галерея промптов ====================
 
-function GalleryView() {
+function GalleryView({ isAdmin }) {
   const [posts, setPosts] = useState(null);
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState(null);
@@ -1566,6 +1566,7 @@ function GalleryView() {
   if (selectedId) {
     return (
       <GalleryPostDetail
+        isAdmin={isAdmin}
         postId={selectedId}
         onBack={() => {
           setSelectedId(null);
@@ -1641,7 +1642,7 @@ function GalleryView() {
   );
 }
 
-function GalleryPostDetail({ postId, onBack }) {
+function GalleryPostDetail({ postId, onBack, isAdmin }) {
   const [post, setPost] = useState(null);
   const [error, setError] = useState("");
   const [comment, setComment] = useState("");
@@ -1688,6 +1689,16 @@ function GalleryPostDetail({ postId, onBack }) {
     }
   }
 
+  async function removeComment(commentId) {
+    if (!window.confirm("Удалить этот комментарий?")) return;
+    try {
+      await api.deleteGalleryComment(postId, commentId);
+      load();
+    } catch (e) {
+      alert("Не удалось удалить: " + e.message);
+    }
+  }
+
   return (
     <div className="view">
       <ScreenHeader title="Галерея" subtitle="Пост и комментарии" />
@@ -1714,9 +1725,9 @@ function GalleryPostDetail({ postId, onBack }) {
             <p style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
           </div>
 
-          {post.is_mine && (
+          {(post.is_mine || isAdmin) && (
             <button className="btn-ghost" onClick={removePost}>
-              🗑 Удалить пост
+              {isAdmin && !post.is_mine ? "🛡 Удалить пост (модерация)" : "🗑 Удалить пост"}
             </button>
           )}
 
@@ -1734,12 +1745,17 @@ function GalleryPostDetail({ postId, onBack }) {
                     style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
                   />
                 ) : null}
-                <div>
+                <div style={{ flex: 1 }}>
                   <p className="result-label" style={{ marginBottom: 4 }}>
                     {c.author}
                   </p>
                   <p>{c.content}</p>
                 </div>
+                {isAdmin && (
+                  <button className="btn-ghost small" onClick={() => removeComment(c.id)} title="Удалить (модерация)">
+                    🗑
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -1764,7 +1780,7 @@ function GalleryPostDetail({ postId, onBack }) {
 
 // ==================== Общий публичный чат ====================
 
-function ChatWidget() {
+function ChatWidget({ isAdmin }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState("");
@@ -1823,6 +1839,25 @@ function ChatWidget() {
     }
   }
 
+  async function removeMessage(id) {
+    try {
+      await api.deletePublicChatMessage(id);
+      load();
+    } catch (e) {
+      alert("Не удалось удалить: " + e.message);
+    }
+  }
+
+  async function clearAll() {
+    if (!window.confirm("Очистить весь общий чат для всех пользователей?")) return;
+    try {
+      await api.clearPublicChat();
+      load();
+    } catch (e) {
+      alert("Не удалось очистить: " + e.message);
+    }
+  }
+
   return (
     <div className="chat-widget">
       {!open && (
@@ -1835,9 +1870,16 @@ function ChatWidget() {
         <div className="chat-widget-panel">
           <div className="chat-widget-header">
             <span>🌍 Общий чат</span>
-            <button className="chat-widget-close" onClick={() => setOpen(false)}>
-              ✕
-            </button>
+            <div className="inline-actions" style={{ gap: 8 }}>
+              {isAdmin && (
+                <button className="chat-widget-close" onClick={clearAll} title="Очистить весь чат (админ)">
+                  🧹
+                </button>
+              )}
+              <button className="chat-widget-close" onClick={() => setOpen(false)}>
+                ✕
+              </button>
+            </div>
           </div>
           {error && <p className="form-error" style={{ margin: "6px 10px" }}>{error}</p>}
           <div className="chat-widget-messages">
@@ -1852,6 +1894,15 @@ function ChatWidget() {
                 <div>
                   <p className="chat-widget-author">{m.author}</p>
                   <p className="chat-widget-bubble-text">{m.content}</p>
+                  {(m.is_mine || isAdmin) && (
+                    <button
+                      className="btn-ghost small"
+                      onClick={() => removeMessage(m.id)}
+                      style={{ fontSize: 11, padding: "2px 4px" }}
+                    >
+                      🗑
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
