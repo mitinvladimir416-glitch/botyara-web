@@ -83,6 +83,12 @@ export const api = {
   me: () => request("/api/me", { auth: true }),
   linkEmail: (email, password) =>
     request("/api/me/link-email", { method: "POST", auth: true, body: { email, password } }),
+  changePassword: (currentPassword, newPassword) =>
+    request("/api/me/change-password", {
+      method: "POST",
+      auth: true,
+      body: { current_password: currentPassword, new_password: newPassword },
+    }),
 
   // ---- Избранное ----
   listFavorites: () => request("/api/favorites", { auth: true }),
