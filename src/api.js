@@ -118,4 +118,17 @@ export const api = {
   addGalleryComment: (id, content) =>
     request(`/api/gallery/${id}/comments`, { method: "POST", auth: true, body: { content } }),
   deleteGalleryPost: (id) => request(`/api/gallery/${id}`, { method: "DELETE", auth: true }),
+
+  // ---- Профиль ----
+  updateProfile: (displayName, avatarFile) => {
+    const form = new FormData();
+    form.append("display_name", displayName || "");
+    if (avatarFile) form.append("avatar", avatarFile);
+    return request("/api/me/profile", { method: "POST", auth: true, body: form, isForm: true });
+  },
+
+  // ---- Общий чат ----
+  listPublicChat: () => request("/api/public-chat", { auth: true }),
+  sendPublicChat: (content) =>
+    request("/api/public-chat", { method: "POST", auth: true, body: { content } }),
 };
