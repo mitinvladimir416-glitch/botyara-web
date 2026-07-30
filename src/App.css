@@ -1060,24 +1060,73 @@ textarea::placeholder {
   z-index: 70;
 }
 
-/* ==================== Мобильные правки (ПК-версию не трогаем) ==================== */
+/* ==================== Мобильные правки: нижняя панель навигации (ПК не трогаем) ==================== */
+/* Меню переезжает вниз экрана — под большой палец, как в лучших мобильных приложениях */
 
-/* Контент отодвинут вниз, чтобы верхняя панель уведомлений не наезжала на вкладки/заголовки */
-.force-mobile .content {
-  padding: 108px 14px 16px;
+.force-mobile .sidebar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  top: auto;
+  width: 100%;
+  flex-direction: row;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  border-right: none;
+  border-top: 1px solid var(--border);
+  z-index: 50;
+  justify-content: space-around;
+  overflow-x: auto;
+}
+.force-mobile .sidebar-brand,
+.force-mobile .sidebar-footer {
+  display: none;
+}
+.force-mobile .sidebar-nav {
+  flex-direction: row;
+  flex: 1;
+  gap: 2px;
+  justify-content: space-around;
+}
+.force-mobile .nav-item {
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  font-size: 10px;
+  border-radius: 12px;
+  min-width: 52px;
+  text-align: center;
+}
+.force-mobile .nav-item span:last-child {
+  display: block;
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+.force-mobile .nav-icon {
+  font-size: 19px;
+}
+.force-mobile .nav-item.active {
+  box-shadow: none;
+  background: rgba(139, 92, 246, 0.14);
+}
+.force-mobile .nav-item.active .nav-icon {
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.7));
 }
 
-/* Верхняя панель — плотный ряд, свой непрозрачный фон под каждой кнопкой, чтобы под ней
-   ничего не "просвечивало" сквозь промежутки между круглыми кнопками */
+/* Контент больше не прячется под верхнюю панель (она теперь свободна сверху),
+   зато снизу нужно место под новую панель навигации */
+.force-mobile .content {
+  padding: 16px 14px calc(78px + env(safe-area-inset-bottom, 0px));
+}
 .force-mobile .top-actions {
-  top: 60px;
-  right: 10px;
+  top: 16px;
+  right: 12px;
   gap: 6px;
 }
 .force-mobile .top-action-btn {
-  width: 32px;
-  height: 32px;
-  font-size: 14px;
+  width: 34px;
+  height: 34px;
+  font-size: 15px;
   background: var(--bg-surface-3);
 }
 .force-mobile .announcements-panel,
@@ -1086,23 +1135,22 @@ textarea::placeholder {
   right: -4px;
 }
 
-/* Плавающая кнопка чата — не наезжает на текст сообщений: сама чуть меньше и приподнята,
-   плюс у списка сообщений снизу зарезервировано место под неё */
+/* Плавающая кнопка чата — приподнята над новой нижней панелью навигации */
 .force-mobile .chat-widget {
-  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   right: 14px;
 }
 .force-mobile .chat-widget-bubble {
-  width: 44px;
-  height: 44px;
-  font-size: 18px;
+  width: 46px;
+  height: 46px;
+  font-size: 19px;
   box-shadow: 0 6px 18px rgba(139, 92, 246, 0.55);
 }
 .force-mobile .chat-log {
-  padding-bottom: 64px;
+  padding-bottom: 12px;
 }
 
-/* Открытая панель чата на мобильном — во весь экран, а не маленькое окошко в углу */
+/* Открытая панель чата на мобильном — во весь экран */
 .chat-widget-panel-mobile {
   position: fixed !important;
   inset: 0 !important;
@@ -1128,26 +1176,65 @@ textarea::placeholder {
   flex-shrink: 0;
 }
 
-/* Кнопки связи/поддержки в подвале сайдбара — окошко не улетает за край экрана */
-.force-mobile .sidebar-footer .contact-popover {
-  bottom: 0;
-  left: auto;
-  right: 0;
-}
-
 @media (max-width: 780px) {
+  .sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100%;
+    flex-direction: row;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-right: none;
+    border-top: 1px solid var(--border);
+    z-index: 50;
+    justify-content: space-around;
+    overflow-x: auto;
+  }
+  .sidebar-brand,
+  .sidebar-footer {
+    display: none;
+  }
+  .sidebar-nav {
+    flex-direction: row;
+    flex: 1;
+    gap: 2px;
+    justify-content: space-around;
+  }
+  .nav-item {
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 4px;
+    font-size: 10px;
+    border-radius: 12px;
+    min-width: 52px;
+    text-align: center;
+  }
+  .nav-item span:last-child {
+    display: block;
+    font-size: 9.5px;
+    white-space: nowrap;
+  }
+  .nav-icon {
+    font-size: 19px;
+  }
+  .nav-item.active {
+    box-shadow: none;
+    background: rgba(139, 92, 246, 0.14);
+  }
   .content {
-    padding: 108px 14px 16px;
+    padding: 16px 14px calc(78px + env(safe-area-inset-bottom, 0px));
   }
   .top-actions {
-    top: 60px;
-    right: 10px;
+    top: 16px;
+    right: 12px;
     gap: 6px;
   }
   .top-action-btn {
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
     background: var(--bg-surface-3);
   }
   .announcements-panel,
@@ -1156,16 +1243,13 @@ textarea::placeholder {
     right: -4px;
   }
   .chat-widget {
-    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     right: 14px;
   }
   .chat-widget-bubble {
-    width: 44px;
-    height: 44px;
-    font-size: 18px;
-  }
-  .chat-log {
-    padding-bottom: 64px;
+    width: 46px;
+    height: 46px;
+    font-size: 19px;
   }
   .composer {
     gap: 6px;
@@ -1180,6 +1264,66 @@ textarea::placeholder {
     padding: 10px 12px;
     font-size: 13px;
     flex-shrink: 0;
+  }
+}
+
+/* ==================== Общая полировка: анимации, отклик на действия (везде) ==================== */
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.view {
+  animation: viewFadeIn 0.28s ease both;
+}
+
+.fav-item,
+.topic-card,
+.result-card,
+.achievement-card,
+.chat-widget-panel {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+.fav-item:hover,
+.topic-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--violet-glow);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.chip:active:not(:disabled),
+.nav-item:active,
+.top-action-btn:active,
+.chat-widget-bubble:active {
+  transform: scale(0.96);
+}
+
+.nav-item {
+  transition: background 0.15s ease, transform 0.1s ease, color 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view {
+    animation: none;
+  }
+  .fav-item,
+  .topic-card,
+  .result-card,
+  .achievement-card,
+  .chat-widget-panel,
+  .btn-primary,
+  .btn-secondary,
+  .chip,
+  .nav-item {
+    transition: none;
   }
 }
 
