@@ -1062,34 +1062,57 @@ textarea::placeholder {
 
 /* ==================== Мобильные правки (ПК-версию не трогаем) ==================== */
 
-.force-mobile .chat-widget {
-  bottom: 82px;
-  right: 12px;
-}
-.force-mobile .chat-widget-bubble {
-  width: 46px;
-  height: 46px;
-  font-size: 19px;
-}
-.force-mobile .chat-widget-panel {
-  right: -4px;
+/* Контент отодвинут вниз, чтобы верхняя панель уведомлений не наезжала на вкладки/заголовки */
+.force-mobile .content {
+  padding: 108px 14px 16px;
 }
 
+/* Верхняя панель — плотный ряд, свой непрозрачный фон под каждой кнопкой, чтобы под ней
+   ничего не "просвечивало" сквозь промежутки между круглыми кнопками */
 .force-mobile .top-actions {
-  top: 62px;
+  top: 60px;
   right: 10px;
   gap: 6px;
 }
 .force-mobile .top-action-btn {
-  width: 34px;
-  height: 34px;
-  font-size: 15px;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  background: var(--bg-surface-3);
 }
 .force-mobile .announcements-panel,
 .force-mobile .contact-popover {
-  width: min(220px, calc(100vw - 40px));
+  width: min(230px, calc(100vw - 24px));
+  right: -4px;
 }
 
+/* Плавающая кнопка чата — не наезжает на текст сообщений: сама чуть меньше и приподнята,
+   плюс у списка сообщений снизу зарезервировано место под неё */
+.force-mobile .chat-widget {
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  right: 14px;
+}
+.force-mobile .chat-widget-bubble {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.55);
+}
+.force-mobile .chat-log {
+  padding-bottom: 64px;
+}
+
+/* Открытая панель чата на мобильном — во весь экран, а не маленькое окошко в углу */
+.chat-widget-panel-mobile {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100dvh !important;
+  border-radius: 0 !important;
+  z-index: 80;
+}
+
+/* Композер (поле ввода + микрофон + отправить) — умещается по ширине на любом экране */
 .force-mobile .composer {
   gap: 6px;
 }
@@ -1105,6 +1128,7 @@ textarea::placeholder {
   flex-shrink: 0;
 }
 
+/* Кнопки связи/поддержки в подвале сайдбара — окошко не улетает за край экрана */
 .force-mobile .sidebar-footer .contact-popover {
   bottom: 0;
   left: auto;
@@ -1112,28 +1136,36 @@ textarea::placeholder {
 }
 
 @media (max-width: 780px) {
-  .chat-widget {
-    bottom: 82px;
-    right: 12px;
-  }
-  .chat-widget-bubble {
-    width: 46px;
-    height: 46px;
-    font-size: 19px;
+  .content {
+    padding: 108px 14px 16px;
   }
   .top-actions {
-    top: 62px;
+    top: 60px;
     right: 10px;
     gap: 6px;
   }
   .top-action-btn {
-    width: 34px;
-    height: 34px;
-    font-size: 15px;
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    background: var(--bg-surface-3);
   }
   .announcements-panel,
   .contact-popover {
-    width: min(220px, calc(100vw - 40px));
+    width: min(230px, calc(100vw - 24px));
+    right: -4px;
+  }
+  .chat-widget {
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    right: 14px;
+  }
+  .chat-widget-bubble {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  .chat-log {
+    padding-bottom: 64px;
   }
   .composer {
     gap: 6px;
