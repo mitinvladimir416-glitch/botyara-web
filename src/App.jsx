@@ -114,7 +114,15 @@ export default function App() {
         {activeTab === "favorites" && <FavoritesView />}
         {activeTab === "gallery" && <GalleryView isAdmin={user.is_admin} />}
         {activeTab === "admin" && user.is_admin && <AdminView />}
-        {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
+        {activeTab === "account" && (
+          <AccountView
+            user={user}
+            onUserUpdate={setUser}
+            onLogout={handleLogout}
+            viewMode={viewMode}
+            onToggleViewMode={toggleViewMode}
+          />
+        )}
       </main>
       <ChatWidget isAdmin={user.is_admin} isMobile={viewMode === "mobile"} />
     </div>
@@ -1348,7 +1356,7 @@ function FavoritesView() {
 
 // ==================== Аккаунт ====================
 
-function AccountView({ user, onUserUpdate }) {
+function AccountView({ user, onUserUpdate, onLogout, viewMode, onToggleViewMode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -1619,6 +1627,15 @@ function AccountView({ user, onUserUpdate }) {
           </form>
         </>
       )}
+
+      <div className="inline-actions" style={{ marginTop: 24 }}>
+        <button className="device-toggle-btn" onClick={onToggleViewMode}>
+          {viewMode === "mobile" ? "🖥 Версия для ПК" : "📱 Мобильная версия"}
+        </button>
+        <button className="btn-ghost" onClick={onLogout}>
+          🚪 Выйти из аккаунта
+        </button>
+      </div>
     </div>
   );
 }
