@@ -138,4 +138,15 @@ export const api = {
     request("/api/public-chat", { method: "POST", auth: true, body: { content } }),
   deletePublicChatMessage: (id) => request(`/api/public-chat/${id}`, { method: "DELETE", auth: true }),
   clearPublicChat: () => request("/api/public-chat", { method: "DELETE", auth: true }),
+
+  // ---- Геймификация ----
+  toggleGalleryLike: (postId) => request(`/api/gallery/${postId}/like`, { method: "POST", auth: true }),
+  listAchievements: () => request("/api/achievements", { auth: true }),
+  listNotifications: () => request("/api/notifications", { auth: true }),
+
+  // ---- Админ-панель ----
+  adminStats: () => request("/api/admin/stats", { auth: true }),
+  adminUsers: () => request("/api/admin/users", { auth: true }),
+  adminLeaderboard: () => request("/api/admin/leaderboard", { auth: true }),
+  adminActivity: () => request("/api/admin/activity", { auth: true }),
 };
