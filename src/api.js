@@ -93,6 +93,8 @@ export const api = {
     request("/api/auth/login", { method: "POST", body: { email, password } }),
   telegramLogin: (telegramData) =>
     request("/api/auth/telegram", { method: "POST", body: telegramData }),
+  startBotLogin: () => request("/api/auth/telegram/start", { method: "POST" }),
+  pollBotLogin: (token) => request(`/api/auth/telegram/poll?token=${encodeURIComponent(token)}`),
   me: () => request("/api/me", { auth: true }),
   linkEmail: (email, password) =>
     request("/api/me/link-email", { method: "POST", auth: true, body: { email, password } }),
