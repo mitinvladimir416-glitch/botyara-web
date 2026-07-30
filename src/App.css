@@ -1516,3 +1516,62 @@ textarea::placeholder {
   color: var(--text-muted);
   margin-top: 4px;
 }
+
+/* ==================== Вход через бота ==================== */
+
+.bot-login-btn {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.bot-login-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 16, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+.bot-login-modal {
+  width: 100%;
+  max-width: 360px;
+  background: var(--bg-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  text-align: center;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+
+.bot-login-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--violet), var(--magenta));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.bot-login-command {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-family: monospace;
+  font-size: 13px;
+  word-break: break-all;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.bot-login-command:hover {
+  border-color: var(--violet-glow);
+}
