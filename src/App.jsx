@@ -115,7 +115,7 @@ export default function App() {
         {activeTab === "gallery" && <GalleryView isAdmin={user.is_admin} />}
         {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
       </main>
-      <ChatWidget isAdmin={user.is_admin} />
+      <ChatWidget isAdmin={user.is_admin} isMobile={viewMode === "mobile"} />
     </div>
   );
 }
@@ -1780,7 +1780,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
 
 // ==================== Общий публичный чат ====================
 
-function ChatWidget({ isAdmin }) {
+function ChatWidget({ isAdmin, isMobile }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState("");
@@ -1867,7 +1867,7 @@ function ChatWidget({ isAdmin }) {
         </button>
       )}
       {open && (
-        <div className="chat-widget-panel">
+        <div className={isMobile ? "chat-widget-panel chat-widget-panel-mobile" : "chat-widget-panel"}>
           <div className="chat-widget-header">
             <span>🌍 Общий чат</span>
             <div className="inline-actions" style={{ gap: 8 }}>
