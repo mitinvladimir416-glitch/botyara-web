@@ -113,6 +113,7 @@ export default function App() {
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
         {activeTab === "gallery" && <GalleryView isAdmin={user.is_admin} />}
+        {activeTab === "admin" && user.is_admin && <AdminView />}
         {activeTab === "account" && <AccountView user={user} onUserUpdate={setUser} />}
       </main>
       <ChatWidget isAdmin={user.is_admin} isMobile={viewMode === "mobile"} />
@@ -324,6 +325,9 @@ function AuthScreen({ onAuthed }) {
 
 function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode }) {
   const displayName = user.display_name || user.telegram_first_name || user.email || "Пользователь";
+  const navItems = user.is_admin
+    ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
+    : NAV_ITEMS;
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -331,7 +335,7 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
         <span className="sidebar-brand-text">ботяра</span>
       </div>
       <nav className="sidebar-nav">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <button
             key={item.id}
             className={active === item.id ? "nav-item active" : "nav-item"}
@@ -371,14 +375,36 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
           ) : (
             <span className="user-avatar">{displayName[0]?.toUpperCase()}</span>
           )}
-          <span className="user-name">{displayName}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span className="user-name">{displayName}</span>
+            {typeof user.level === "number" && (
+              <div className="level-block">
+                <div className="level-row">
+                  <span className="level-badge">Ур. {user.level}</span>
+                  {user.current_streak > 0 && <span className="streak-badge">🔥 {user.current_streak}</span>}
+                </div>
+                <div className="xp-bar-track" title={`${user.xp} / ${user.xp_for_next_level} XP`}>
+                  <div
+                    className="xp-bar-fill"
+                    style={{ width: `${Math.min(100, (user.xp / Math.max(user.xp_for_next_level, 1)) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+        {user.level_title && <p className="empty-hint" style={{ margin: "0 0 8px", fontSize: 12 }}>{user.level_title}</p>}
         <button className="btn-ghost" onClick={onLogout}>
           Выйти
         </button>
       </div>
     </aside>
   );
+}
+
+function LevelBadge({ level }) {
+  if (!level) return null;
+  return <span className="level-badge-mini">Ур.{level}</span>;
 }
 
 function ScreenHeader({ title, subtitle }) {
@@ -1336,6 +1362,12 @@ function AccountView({ user, onUserUpdate }) {
   const [profileError, setProfileError] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
 
+  const [achievements, setAchievements] = useState(null);
+
+  useEffect(() => {
+    api.listAchievements().then(setAchievements).catch(() => setAchievements([]));
+  }, []);
+
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -1409,6 +1441,51 @@ function AccountView({ user, onUserUpdate }) {
   return (
     <div className="view">
       <ScreenHeader title="Аккаунт" subtitle="Способы входа в этот аккаунт" />
+
+      {typeof user.level === "number" && (
+        <div className="result-card">
+          <div className="inline-actions" style={{ justifyContent: "space-between", marginBottom: 6 }}>
+            <p className="result-label" style={{ margin: 0 }}>
+              Уровень {user.level} · {user.level_title}
+            </p>
+            {user.current_streak > 0 && <span className="streak-badge">🔥 {user.current_streak} дней подряд</span>}
+          </div>
+          <div className="xp-bar-track" style={{ marginBottom: 4 }}>
+            <div
+              className="xp-bar-fill"
+              style={{ width: `${Math.min(100, (user.xp / Math.max(user.xp_for_next_level, 1)) * 100)}%` }}
+            />
+          </div>
+          <p className="empty-hint" style={{ margin: 0, fontSize: 12 }}>
+            {user.xp} / {user.xp_for_next_level} XP до следующего уровня
+          </p>
+        </div>
+      )}
+
+      {achievements && (
+        <>
+          <p className="step-question">Достижения</p>
+          <div className="achievements-grid">
+            {achievements.map((a) => (
+              <div key={a.key} className={a.earned ? "achievement-card earned" : "achievement-card"} title={a.desc}>
+                <span className="achievement-icon">{a.label.split(" ")[0]}</span>
+                <span className="achievement-name">{a.label.split(" ").slice(1).join(" ")}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <p className="step-question">🎨 Магазин оформления</p>
+      <div className="result-card shop-teaser">
+        <p style={{ marginTop: 0 }}>Рамки для аватарки, значки и цветные ники — совсем скоро ✨</p>
+        <div className="chip-row" style={{ marginBottom: 0 }}>
+          <span className="chip shop-preview-item">🖼 Неоновая рамка</span>
+          <span className="chip shop-preview-item">💎 Бейдж "VIP"</span>
+          <span className="chip shop-preview-item">🌈 Цветной ник</span>
+          <span className="chip shop-preview-item">✨ Анимированный аватар</span>
+        </div>
+      </div>
 
       <p className="step-question">Профиль</p>
       <form onSubmit={handleSaveProfile} className="auth-form" style={{ marginBottom: 20 }}>
@@ -1563,6 +1640,18 @@ function GalleryView({ isAdmin }) {
 
   useEffect(load, [load]);
 
+  async function toggleLike(postId, e) {
+    e.stopPropagation();
+    try {
+      const res = await api.toggleGalleryLike(postId);
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postId ? { ...p, liked_by_me: res.liked, like_count: res.like_count } : p))
+      );
+    } catch (err) {
+      alert("Не удалось поставить лайк: " + err.message);
+    }
+  }
+
   if (selectedId) {
     return (
       <GalleryPostDetail
@@ -1630,6 +1719,14 @@ function GalleryView({ isAdmin }) {
               ) : null}
               <span className="empty-hint" style={{ fontSize: 13 }}>
                 {post.is_mine ? "Ты" : post.author}
+              </span>
+              <LevelBadge level={post.author_level} />
+              <span
+                className={post.liked_by_me ? "like-btn liked" : "like-btn"}
+                onClick={(e) => toggleLike(post.id, e)}
+                role="button"
+              >
+                {post.liked_by_me ? "❤️" : "🤍"} {post.like_count || 0}
               </span>
               <span className="empty-hint" style={{ fontSize: 13 }}>
                 💬 {post.comment_count}
@@ -1699,6 +1796,15 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
     }
   }
 
+  async function toggleLike() {
+    try {
+      const res = await api.toggleGalleryLike(postId);
+      setPost((p) => ({ ...p, liked_by_me: res.liked, like_count: res.like_count }));
+    } catch (e) {
+      alert("Не удалось поставить лайк: " + e.message);
+    }
+  }
+
   return (
     <div className="view">
       <ScreenHeader title="Галерея" subtitle="Пост и комментарии" />
@@ -1721,8 +1827,18 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
               <p className="result-label" style={{ margin: 0 }}>
                 {post.is_mine ? "Ты" : post.author}
               </p>
+              <LevelBadge level={post.author_level} />
             </div>
             <p style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
+            <div className="inline-actions" style={{ marginTop: 10 }}>
+              <span
+                className={post.liked_by_me ? "like-btn liked" : "like-btn"}
+                onClick={toggleLike}
+                role="button"
+              >
+                {post.liked_by_me ? "❤️" : "🤍"} {post.like_count || 0}
+              </span>
+            </div>
           </div>
 
           {(post.is_mine || isAdmin) && (
@@ -1747,7 +1863,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
                 ) : null}
                 <div style={{ flex: 1 }}>
                   <p className="result-label" style={{ marginBottom: 4 }}>
-                    {c.author}
+                    {c.author} <LevelBadge level={c.author_level} />
                   </p>
                   <p>{c.content}</p>
                 </div>
@@ -1892,7 +2008,9 @@ function ChatWidget({ isAdmin, isMobile }) {
                   <span className="chat-widget-avatar-fallback">{m.author?.[0]?.toUpperCase()}</span>
                 )}
                 <div>
-                  <p className="chat-widget-author">{m.author}</p>
+                  <p className="chat-widget-author">
+                    {m.author} <LevelBadge level={m.author_level} />
+                  </p>
                   <p className="chat-widget-bubble-text">{m.content}</p>
                   {(m.is_mine || isAdmin) && (
                     <button
@@ -1976,23 +2094,32 @@ function TopBar() {
   const [items, setItems] = useState(null);
   const [unseen, setUnseen] = useState(0);
 
-  useEffect(() => {
-    api
-      .listAnnouncements()
-      .then((data) => {
-        setItems(data);
-        const lastSeenId = Number(localStorage.getItem("botyara_last_seen_announcement") || 0);
-        const newer = data.filter((a) => a.id > lastSeenId).length;
+  const load = useCallback(() => {
+    Promise.all([api.listAnnouncements(), api.listNotifications()])
+      .then(([announcements, notifications]) => {
+        const merged = [
+          ...announcements.map((a) => ({ uid: `a-${a.id}`, content: a.content, created_at: a.created_at, icon: "📢" })),
+          ...notifications.map((n) => ({ uid: `n-${n.id}`, content: n.content, created_at: n.created_at, icon: "" })),
+        ].sort((x, y) => new Date(y.created_at) - new Date(x.created_at));
+        setItems(merged);
+        const lastSeenTime = Number(localStorage.getItem("botyara_last_seen_time") || 0);
+        const newer = merged.filter((i) => new Date(i.created_at).getTime() > lastSeenTime).length;
         setUnseen(newer);
       })
       .catch(() => setItems([]));
   }, []);
 
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 15000);
+    return () => clearInterval(interval);
+  }, [load]);
+
   function toggleOpen() {
     setOpen((v) => {
       const next = !v;
-      if (next && items && items.length > 0) {
-        localStorage.setItem("botyara_last_seen_announcement", String(items[0].id));
+      if (next) {
+        localStorage.setItem("botyara_last_seen_time", String(Date.now()));
         setUnseen(0);
       }
       return next;
@@ -2002,20 +2129,22 @@ function TopBar() {
   return (
     <div className="top-actions">
       <div style={{ position: "relative" }}>
-        <button className="top-action-btn" onClick={toggleOpen} title="Обновления">
+        <button className="top-action-btn" onClick={toggleOpen} title="Обновления и уведомления">
           🔔
           {unseen > 0 && <span className="top-action-badge">{unseen > 9 ? "9+" : unseen}</span>}
         </button>
         {open && (
           <div className="announcements-panel">
             <p className="step-question" style={{ marginTop: 0 }}>
-              📢 Обновления
+              🔔 Обновления и уведомления
             </p>
             {items === null && <p className="empty-hint">Загружаю…</p>}
             {items && items.length === 0 && <p className="empty-hint">Пока новостей нет.</p>}
-            {items?.map((a) => (
-              <div key={a.id} className="fav-item" style={{ marginBottom: 8 }}>
-                <p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{a.content}</p>
+            {items?.map((i) => (
+              <div key={i.uid} className="fav-item" style={{ marginBottom: 8 }}>
+                <p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>
+                  {i.icon} {i.content}
+                </p>
               </div>
             ))}
           </div>
@@ -2035,6 +2164,193 @@ function TopBar() {
       >
         💜
       </ContactButton>
+    </div>
+  );
+}
+
+// ==================== Админ-панель ====================
+
+function AdminView() {
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState(null);
+  const [leaderboard, setLeaderboard] = useState(null);
+  const [activity, setActivity] = useState(null);
+  const [error, setError] = useState("");
+  const [tab, setTab] = useState("overview");
+
+  const loadAll = useCallback(() => {
+    Promise.all([api.adminStats(), api.adminUsers(), api.adminLeaderboard(), api.adminActivity()])
+      .then(([s, u, l, a]) => {
+        setStats(s);
+        setUsers(u);
+        setLeaderboard(l);
+        setActivity(a);
+      })
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+    const interval = setInterval(loadAll, 30000);
+    return () => clearInterval(interval);
+  }, [loadAll]);
+
+  const maxSignup = stats ? Math.max(1, ...stats.signups_by_day.map((d) => d.count)) : 1;
+
+  return (
+    <div className="view bt-wide">
+      <ScreenHeader title="Админка" subtitle="Статистика и активность проекта" />
+      {error && <p className="form-error">{error}</p>}
+
+      {stats && (
+        <div className="admin-stat-grid">
+          <div className="admin-stat-card online">
+            <span className="admin-stat-value">{stats.online_now}</span>
+            <span className="admin-stat-label">🟢 Онлайн сейчас</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.total_users}</span>
+            <span className="admin-stat-label">👥 Всего пользователей</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.new_today}</span>
+            <span className="admin-stat-label">🆕 Новых сегодня</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.new_week}</span>
+            <span className="admin-stat-label">🆕 Новых за неделю</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.active_today}</span>
+            <span className="admin-stat-label">✅ Активны сегодня</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.active_week}</span>
+            <span className="admin-stat-label">✅ Активны за неделю</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.total_messages}</span>
+            <span className="admin-stat-label">💬 Сообщений всего</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.total_gallery_posts}</span>
+            <span className="admin-stat-label">🖼️ Постов в галерее</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.total_comments}</span>
+            <span className="admin-stat-label">💭 Комментариев</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.total_likes}</span>
+            <span className="admin-stat-label">❤️ Лайков</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{stats.total_favorites}</span>
+            <span className="admin-stat-label">⭐ В избранном</span>
+          </div>
+          <div className="admin-stat-card warn">
+            <span className="admin-stat-value">{stats.rejected_today}</span>
+            <span className="admin-stat-label">🚫 Отклонено сегодня</span>
+          </div>
+        </div>
+      )}
+
+      {stats && (
+        <>
+          <p className="step-question">Регистрации за 14 дней</p>
+          <div className="admin-chart">
+            {stats.signups_by_day.map((d) => (
+              <div key={d.date} className="admin-chart-bar-wrap" title={`${d.date}: ${d.count}`}>
+                <div
+                  className="admin-chart-bar"
+                  style={{ height: `${Math.max(4, (d.count / maxSignup) * 100)}%` }}
+                />
+                <span className="admin-chart-label">{d.date.slice(8)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div className="chip-row" style={{ marginTop: 20 }}>
+        <button className={tab === "overview" ? "chip active" : "chip"} onClick={() => setTab("overview")}>
+          📊 Модерация
+        </button>
+        <button className={tab === "users" ? "chip active" : "chip"} onClick={() => setTab("users")}>
+          👥 Пользователи
+        </button>
+        <button className={tab === "leaderboard" ? "chip active" : "chip"} onClick={() => setTab("leaderboard")}>
+          🏆 Топ по опыту
+        </button>
+      </div>
+
+      {tab === "overview" && (
+        <div className="fav-list" style={{ marginTop: 12 }}>
+          {activity === null && <p className="empty-hint">Загружаю…</p>}
+          {activity && activity.length === 0 && <p className="empty-hint">Пока пусто.</p>}
+          {activity?.map((e, i) => (
+            <div key={i} className="fav-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
+              <div className="inline-actions" style={{ justifyContent: "space-between" }}>
+                <span className="empty-hint" style={{ fontSize: 12 }}>
+                  {e.kind === "gallery_post" ? "🖼️ Пост" : e.kind === "gallery_comment" ? "💭 Комментарий" : "🌍 Общий чат"} ·{" "}
+                  {e.author}
+                </span>
+                <span
+                  className={e.status === "approved" ? "saved-msg" : "form-error"}
+                  style={{ fontSize: 12, margin: 0 }}
+                >
+                  {e.status === "approved" ? "✅ одобрено" : `🚫 отклонено${e.reject_reason ? ": " + e.reject_reason : ""}`}
+                </span>
+              </div>
+              <p style={{ marginTop: 6 }}>{e.content}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "users" && (
+        <div className="fav-list" style={{ marginTop: 12 }}>
+          {users?.map((u) => (
+            <div key={u.id} className="fav-item">
+              {u.avatar ? (
+                <img src={u.avatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+              ) : (
+                <span className="user-avatar">{u.name[0]?.toUpperCase()}</span>
+              )}
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontWeight: 700 }}>
+                  {u.is_online && <span className="online-dot" title="Онлайн" />} {u.name} <LevelBadge level={u.level} />{" "}
+                  {u.is_admin && "🛡"}
+                </p>
+                <p className="empty-hint" style={{ margin: 0, fontSize: 12 }}>
+                  {u.email || ""} {u.telegram_username ? "@" + u.telegram_username : ""} · XP {u.xp} · 🔥{u.current_streak}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "leaderboard" && (
+        <div className="fav-list" style={{ marginTop: 12 }}>
+          {leaderboard?.map((u, i) => (
+            <div key={u.id} className="fav-item">
+              <span style={{ fontWeight: 900, fontSize: 18, width: 24, flexShrink: 0 }}>{i + 1}</span>
+              {u.avatar ? (
+                <img src={u.avatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+              ) : (
+                <span className="user-avatar">{u.name[0]?.toUpperCase()}</span>
+              )}
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontWeight: 700 }}>
+                  {u.name} <LevelBadge level={u.level} />
+                </p>
+              </div>
+              <span className="empty-hint">{u.xp} XP</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
