@@ -152,6 +152,13 @@ function AuthScreen({ onAuthed }) {
   const [showAuth, setShowAuth] = useState(false);
   const telegramRef = useRef(null);
 
+  const [botLoginOpen, setBotLoginOpen] = useState(false);
+  const [botLoginToken, setBotLoginToken] = useState(null);
+  const [botUsername, setBotUsername] = useState(BOT_USERNAME);
+  const [botLoginError, setBotLoginError] = useState("");
+  const [botLoginStarting, setBotLoginStarting] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(() => setShowAuth(true), 2800);
     return () => clearTimeout(timer);
@@ -179,6 +186,54 @@ function AuthScreen({ onAuthed }) {
       telegramRef.current.appendChild(script);
     }
   }, [onAuthed]);
+
+  // Пока открыто окно входа через бота — опрашиваем сайт, подтвердил ли пользователь вход
+  useEffect(() => {
+    if (!botLoginOpen || !botLoginToken) return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await api.pollBotLogin(botLoginToken);
+        if (data.status === "confirmed") {
+          clearInterval(interval);
+          setBotLoginOpen(false);
+          onAuthed(data);
+        }
+      } catch (e) {
+        clearInterval(interval);
+        setBotLoginError(e.message || "Время ожидания истекло — попробуй ещё раз");
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [botLoginOpen, botLoginToken, onAuthed]);
+
+  async function startBotLogin() {
+    setBotLoginStarting(true);
+    setBotLoginError("");
+    try {
+      const data = await api.startBotLogin();
+      setBotLoginToken(data.token);
+      setBotUsername(data.bot_username || BOT_USERNAME);
+      setBotLoginOpen(true);
+      setCopied(false);
+    } catch (e) {
+      setError("Не удалось запустить вход через бота: " + e.message);
+    } finally {
+      setBotLoginStarting(false);
+    }
+  }
+
+  function retryBotLogin() {
+    setBotLoginToken(null);
+    setBotLoginError("");
+    startBotLogin();
+  }
+
+  function copyBotCommand() {
+    const command = `/start web_auth_${botLoginToken}`;
+    navigator.clipboard?.writeText(command);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -283,6 +338,55 @@ function AuthScreen({ onAuthed }) {
         </div>
 
         <div className="telegram-slot" ref={telegramRef} />
+
+        <button className="btn-secondary bot-login-btn" onClick={startBotLogin} disabled={botLoginStarting} type="button">
+          {botLoginStarting ? "Секунду…" : "🚀 Войти через бота"}
+        </button>
+
+        {botLoginOpen && (
+          <div className="bot-login-overlay" onClick={() => setBotLoginOpen(false)}>
+            <div className="bot-login-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="bot-login-icon">✈️</div>
+              <h3 style={{ margin: "0 0 6px" }}>Авторизация через Telegram</h3>
+              {!botLoginError ? (
+                <>
+                  <p className="empty-hint" style={{ marginBottom: 16 }}>
+                    Откройте Telegram и нажмите «Запустить» у бота — вы автоматически войдёте.
+                  </p>
+                  <a
+                    className="btn-primary"
+                    style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 14 }}
+                    href={`https://t.me/${botUsername}?start=web_auth_${botLoginToken}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    🚀 Открыть Telegram
+                  </a>
+                  <p className="empty-hint" style={{ marginBottom: 6 }}>
+                    Или скопируйте команду и отправьте её боту @{botUsername}:
+                  </p>
+                  <div className="bot-login-command" onClick={copyBotCommand} title="Нажми, чтобы скопировать">
+                    /start web_auth_{botLoginToken}
+                    {copied && <span className="saved-msg" style={{ marginLeft: 8 }}>Скопировано!</span>}
+                  </div>
+                  <div className="inline-actions" style={{ justifyContent: "center", marginTop: 16 }}>
+                    <span className="empty-hint">⏳ Ожидание авторизации…</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="form-error" style={{ marginBottom: 16 }}>{botLoginError}</p>
+                  <button className="btn-primary" onClick={retryBotLogin} style={{ marginBottom: 10 }}>
+                    Попробовать ещё раз
+                  </button>
+                </>
+              )}
+              <button className="btn-ghost" onClick={() => setBotLoginOpen(false)} style={{ marginTop: 4 }}>
+                Закрыть
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="divider"><span>или</span></div>
 
