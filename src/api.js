@@ -151,4 +151,13 @@ export const api = {
   adminUsers: () => request("/api/admin/users", { auth: true }),
   adminLeaderboard: () => request("/api/admin/leaderboard", { auth: true }),
   adminActivity: () => request("/api/admin/activity", { auth: true }),
+
+  // ---- Совместные комнаты ----
+  createRoom: (category) => request("/api/rooms", { method: "POST", auth: true, body: { category } }),
+  joinRoom: (code) => request("/api/rooms/join", { method: "POST", auth: true, body: { code } }),
+  getRoom: (code) => request(`/api/rooms/${code}`, { auth: true }),
+  sendRoomMessage: (code, content) =>
+    request(`/api/rooms/${code}/messages`, { method: "POST", auth: true, body: { content } }),
+  finishRoom: (code) => request(`/api/rooms/${code}/finish`, { method: "POST", auth: true }),
+  listMyRooms: () => request("/api/rooms", { auth: true }),
 };
