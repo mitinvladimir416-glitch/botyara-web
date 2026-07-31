@@ -859,6 +859,44 @@ textarea::placeholder {
   box-shadow: 0 0 0 2px var(--bg-void);
 }
 
+@keyframes chatToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.chat-widget-toast {
+  position: absolute;
+  bottom: 64px;
+  right: 0;
+  width: 220px;
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--violet-glow);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  animation: chatToastIn 0.25s ease both;
+}
+.chat-widget-toast-author {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--violet-glow);
+  margin-bottom: 2px;
+}
+.chat-widget-toast-text {
+  display: block;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
 .chat-widget-panel {
   width: 340px;
   height: 480px;
@@ -1137,7 +1175,7 @@ textarea::placeholder {
 
 /* Плавающая кнопка чата — приподнята над новой нижней панелью навигации */
 .force-mobile .chat-widget {
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(140px + env(safe-area-inset-bottom, 0px));
   right: 14px;
 }
 .force-mobile .chat-widget-bubble {
@@ -1243,7 +1281,7 @@ textarea::placeholder {
     right: -4px;
   }
   .chat-widget {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(140px + env(safe-area-inset-bottom, 0px));
     right: 14px;
   }
   .chat-widget-bubble {
