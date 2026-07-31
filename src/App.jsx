@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { id: "cover", label: "Обложка трека", icon: "🖼" },
   { id: "favorites", label: "Избранное", icon: "⭐" },
   { id: "gallery", label: "Галерея", icon: "🖼️" },
+  { id: "rooms", label: "Комнаты", icon: "🤝" },
   { id: "account", label: "Аккаунт", icon: "👤" },
 ];
 
@@ -28,7 +29,9 @@ const AUTHOR_EMAIL = "mitinvladimir416@gmail.com";
 export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [activeTab, setActiveTab] = useState("chat");
+  const [activeTab, setActiveTab] = useState(() =>
+    new URLSearchParams(window.location.search).get("room") ? "rooms" : "chat"
+  );
   const [viewMode, setViewMode] = useState(() => {
     const saved = localStorage.getItem("botyara_view_mode");
     if (saved === "mobile" || saved === "desktop") return saved;
@@ -113,6 +116,7 @@ export default function App() {
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
         {activeTab === "gallery" && <GalleryView isAdmin={user.is_admin} />}
+        {activeTab === "rooms" && <RoomsView />}
         {activeTab === "admin" && user.is_admin && <AdminView />}
         {activeTab === "account" && (
           <AccountView
@@ -2481,6 +2485,289 @@ function AdminView() {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== Совместные комнаты ====================
+
+const ROOM_CATEGORY_LABELS = {
+  suno: "🎵 Suno",
+  image: "🖼 Картинка",
+  video: "🎬 Видео",
+  other: "💬 Общий промпт",
+};
+
+function RoomsView() {
+  const [rooms, setRooms] = useState(null);
+  const [error, setError] = useState("");
+  const [activeCode, setActiveCode] = useState(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const load = useCallback(() => {
+    api
+      .listMyRooms()
+      .then(setRooms)
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(load, [load]);
+
+  // Если перешли по пригласительной ссылке ?room=CODE — сразу присоединяемся
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomFromUrl = params.get("room");
+    if (roomFromUrl) {
+      window.history.replaceState({}, "", window.location.pathname);
+      api
+        .joinRoom(roomFromUrl.toUpperCase())
+        .then(() => setActiveCode(roomFromUrl.toUpperCase()))
+        .catch((e) => setJoinError(e.message));
+    }
+  }, []);
+
+  async function create(category) {
+    setCreating(true);
+    setError("");
+    try {
+      const room = await api.createRoom(category);
+      setActiveCode(room.code);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function join() {
+    const code = joinCode.trim().toUpperCase();
+    if (!code) return;
+    setJoinError("");
+    try {
+      await api.joinRoom(code);
+      setActiveCode(code);
+    } catch (e) {
+      setJoinError(e.message);
+    }
+  }
+
+  if (activeCode) {
+    return (
+      <RoomDetail
+        code={activeCode}
+        onBack={() => {
+          setActiveCode(null);
+          load();
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="view">
+      <ScreenHeader title="Совместные комнаты" subtitle="Сочиняйте промпт вместе — вдвоём или больше" />
+      {error && <p className="form-error">{error}</p>}
+
+      <p className="step-question">Создать новую</p>
+      <div className="chip-row">
+        {Object.entries(ROOM_CATEGORY_LABELS).map(([key, label]) => (
+          <button key={key} className="chip" disabled={creating} onClick={() => create(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <p className="step-question" style={{ marginTop: 20 }}>
+        Присоединиться по коду
+      </p>
+      <div className="composer" style={{ marginBottom: joinError ? 8 : 20 }}>
+        <input
+          placeholder="Например: 8X2F4K"
+          value={joinCode}
+          onChange={(e) => setJoinCode(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && join()}
+        />
+        <button className="btn-primary" onClick={join}>
+          Войти
+        </button>
+      </div>
+      {joinError && <p className="form-error" style={{ marginBottom: 20 }}>{joinError}</p>}
+
+      {rooms && rooms.length > 0 && (
+        <>
+          <p className="step-question">Твои комнаты</p>
+          <div className="fav-list">
+            {rooms.map((r) => (
+              <button
+                key={r.code}
+                className="fav-item"
+                style={{ textAlign: "left", cursor: "pointer" }}
+                onClick={() => setActiveCode(r.code)}
+              >
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontWeight: 700 }}>
+                    {ROOM_CATEGORY_LABELS[r.category] || r.category} · {r.code}
+                  </p>
+                  <p className="empty-hint" style={{ margin: 0 }}>
+                    {r.status === "finished" ? "✅ Завершена" : "🟢 Открыта"}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function RoomDetail({ code, onBack }) {
+  const [room, setRoom] = useState(null);
+  const [error, setError] = useState("");
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const endRef = useRef(null);
+
+  const load = useCallback(() => {
+    api
+      .getRoom(code)
+      .then(setRoom)
+      .catch((e) => setError(e.message));
+  }, [code]);
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [room]);
+
+  async function send() {
+    const text = input.trim();
+    if (!text || sending || room?.status !== "open") return;
+    setSending(true);
+    setInput("");
+    try {
+      const updated = await api.sendRoomMessage(code, text);
+      setRoom(updated);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function finish() {
+    if (
+      !window.confirm(
+        "Завершить комнату и получить финальный промпт? Он попадёт в избранное всем участникам."
+      )
+    )
+      return;
+    setFinishing(true);
+    try {
+      const updated = await api.finishRoom(code);
+      setRoom(updated);
+    } catch (e) {
+      alert("Не удалось завершить: " + e.message);
+    } finally {
+      setFinishing(false);
+    }
+  }
+
+  function copyInvite() {
+    const link = `${window.location.origin}${window.location.pathname}?room=${code}`;
+    navigator.clipboard?.writeText(link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  if (!room) {
+    return (
+      <div className="view">
+        <button className="btn-ghost" onClick={onBack}>
+          ◀️ Назад
+        </button>
+        {error ? <p className="form-error">{error}</p> : <p className="empty-hint">Загружаю комнату…</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="view bt-wide">
+      <ScreenHeader title={`🤝 Комната ${room.code}`} subtitle={ROOM_CATEGORY_LABELS[room.category] || room.category} />
+      <button className="btn-ghost" onClick={onBack} style={{ marginBottom: 10 }}>
+        ◀️ К списку комнат
+      </button>
+
+      <div className="chip-row">
+        {room.participants.map((p) => (
+          <span key={p.id} className="chip" style={{ cursor: "default" }}>
+            {p.avatar ? (
+              <img
+                src={p.avatar}
+                alt=""
+                style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover", marginRight: 4, verticalAlign: "middle" }}
+              />
+            ) : null}
+            {p.is_me ? "Ты" : p.name} <LevelBadge level={p.level} />
+          </span>
+        ))}
+        {room.status === "open" && (
+          <button className="chip" onClick={copyInvite} title="Скопировать ссылку-приглашение">
+            {copied ? "✅ Скопировано" : "🔗 Пригласить"}
+          </button>
+        )}
+      </div>
+
+      {room.status === "finished" && room.final_content && (
+        <div className="result-card" style={{ marginTop: 12 }}>
+          <p className="result-label">✅ Готовый промпт (уже в избранном у всех участников)</p>
+          <p style={{ whiteSpace: "pre-wrap" }}>{room.final_content}</p>
+        </div>
+      )}
+
+      <div className="chat-log" style={{ marginTop: 16 }}>
+        {room.messages.length === 0 && <p className="empty-hint">Пока пусто — начни разговор 👇</p>}
+        {room.messages.map((m) => (
+          <div key={m.id} style={{ alignSelf: m.is_mine ? "flex-end" : "flex-start", maxWidth: "85%" }}>
+            {!m.is_mine && (
+              <p className="empty-hint" style={{ fontSize: 12, margin: "0 0 2px 4px" }}>
+                {m.author}
+              </p>
+            )}
+            <Bubble role={m.is_mine ? "user" : "assistant"}>{m.content}</Bubble>
+          </div>
+        ))}
+        <div ref={endRef} />
+      </div>
+      {error && <p className="form-error">{error}</p>}
+
+      {room.status === "open" && (
+        <>
+          <div className="composer" style={{ marginTop: 12 }}>
+            <input
+              placeholder="Напиши идею…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && send()}
+            />
+            <button className="btn-primary" onClick={send} disabled={sending}>
+              Отправить
+            </button>
+          </div>
+          <button className="btn-secondary" onClick={finish} disabled={finishing} style={{ marginTop: 12 }}>
+            {finishing ? "Собираю промпт…" : "✅ Готово — собрать финальный промпт"}
+          </button>
+        </>
       )}
     </div>
   );
