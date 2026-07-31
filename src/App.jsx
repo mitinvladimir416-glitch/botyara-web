@@ -150,7 +150,6 @@ function AuthScreen({ onAuthed }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
-  const telegramRef = useRef(null);
 
   const [botLoginOpen, setBotLoginOpen] = useState(false);
   const [botLoginToken, setBotLoginToken] = useState(null);
@@ -163,29 +162,6 @@ function AuthScreen({ onAuthed }) {
     const timer = setTimeout(() => setShowAuth(true), 2800);
     return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    window.onTelegramAuth = async (tgUser) => {
-      try {
-        const data = await api.telegramLogin(tgUser);
-        onAuthed(data);
-      } catch (e) {
-        setError("Не удалось войти через Telegram: " + e.message);
-      }
-    };
-
-    if (telegramRef.current && telegramRef.current.childElementCount === 0) {
-      const script = document.createElement("script");
-      script.src = "https://telegram.org/js/telegram-widget.js?22";
-      script.async = true;
-      script.setAttribute("data-telegram-login", BOT_USERNAME);
-      script.setAttribute("data-size", "large");
-      script.setAttribute("data-radius", "12");
-      script.setAttribute("data-onauth", "onTelegramAuth(user)");
-      script.setAttribute("data-request-access", "write");
-      telegramRef.current.appendChild(script);
-    }
-  }, [onAuthed]);
 
   // Пока открыто окно входа через бота — опрашиваем сайт, подтвердил ли пользователь вход
   useEffect(() => {
@@ -336,8 +312,6 @@ function AuthScreen({ onAuthed }) {
             <p className="brand-sub">жми, общайся, отрывайся</p>
           </div>
         </div>
-
-        <div className="telegram-slot" ref={telegramRef} />
 
         <button className="btn-secondary bot-login-btn" onClick={startBotLogin} disabled={botLoginStarting} type="button">
           {botLoginStarting ? "Секунду…" : "🚀 Войти через бота"}
@@ -2025,27 +1999,47 @@ function ChatWidget({ isAdmin, isMobile }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [unseen, setUnseen] = useState(0);
+  const [toast, setToast] = useState(null);
   const endRef = useRef(null);
   const lastCountRef = useRef(0);
   const openRef = useRef(false);
+  const toastTimerRef = useRef(null);
   openRef.current = open;
 
   const load = useCallback(() => {
     api
       .listPublicChat()
       .then((data) => {
-        setMessages(data);
-        if (!openRef.current && data.length > lastCountRef.current) {
-          setUnseen((u) => u + (data.length - lastCountRef.current));
+        setMessages((prev) => {
+          // Если только что отправили сообщение оптимистично (temp-id) — не откатываем его
+          // назад в "пусто", пока сервер не догонит, просто заменяем на настоящий список
+          return data;
+        });
+        if (data.length > lastCountRef.current) {
+          const freshOnes = data.slice(lastCountRef.current);
+          const freshFromOthers = freshOnes.filter((m) => !m.is_mine);
+          if (!openRef.current && freshFromOthers.length > 0) {
+            setUnseen((u) => u + freshFromOthers.length);
+          }
+          if (freshFromOthers.length > 0) {
+            const last = freshFromOthers[freshFromOthers.length - 1];
+            showToast(last.author, last.content);
+          }
         }
         lastCountRef.current = data.length;
       })
       .catch((e) => setError(e.message));
   }, []);
 
+  function showToast(author, content) {
+    clearTimeout(toastTimerRef.current);
+    setToast({ author, content: content.length > 70 ? content.slice(0, 70) + "…" : content });
+    toastTimerRef.current = setTimeout(() => setToast(null), 4000);
+  }
+
   useEffect(() => {
     load();
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(load, 2500); // быстрее, чем раньше (было 5с) — чат ощущается живее
     return () => clearInterval(interval);
   }, [load]);
 
@@ -2061,15 +2055,25 @@ function ChatWidget({ isAdmin, isMobile }) {
     if (!text || sending) return;
     setSending(true);
     setSendError("");
+    setInput("");
+
+    // Оптимистичное сообщение — появляется в чате мгновенно, ещё до ответа сервера
+    const tempId = `temp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: tempId, content: text, author: "Ты", is_mine: true, author_avatar: null, created_at: new Date().toISOString() },
+    ]);
+
     try {
       const res = await api.sendPublicChat(text);
       if (res.status === "approved") {
-        setInput("");
-        load(); // мгновенное обновление сразу после отправки, не дожидаясь опроса
+        load(); // подтягиваем настоящую версию с сервера (с реальным id и т.д.)
       } else {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setSendError(`🚫 ${res.reject_reason || "Отклонено модерацией"}`);
       }
     } catch (e) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setSendError("Ошибка: " + e.message);
     } finally {
       setSending(false);
@@ -2097,6 +2101,12 @@ function ChatWidget({ isAdmin, isMobile }) {
 
   return (
     <div className="chat-widget">
+      {toast && !open && (
+        <div className="chat-widget-toast" onClick={() => setOpen(true)}>
+          <span className="chat-widget-toast-author">💬 {toast.author}</span>
+          <span className="chat-widget-toast-text">{toast.content}</span>
+        </div>
+      )}
       {!open && (
         <button className="chat-widget-bubble" onClick={() => setOpen(true)} title="Общий чат">
           💬
