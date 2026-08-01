@@ -510,9 +510,22 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
   );
 }
 
+function levelBadgeColor(level) {
+  if (level >= 35) return "#facc15"; // 💎 Ботяра №1 — золото
+  if (level >= 20) return "#fb7185"; // 👑 Легенда района — коралл
+  if (level >= 10) return "#a78bfa"; // 🔥 Мастер вайба — фиолетовый
+  if (level >= 5) return "#22d3ee"; // 😎 Свой в доску — бирюза
+  return "#4ade80"; // 🌱 Новичок квартала — зелёный
+}
+
 function LevelBadge({ level }) {
   if (!level) return null;
-  return <span className="level-badge-mini">Ур.{level}</span>;
+  const color = levelBadgeColor(level);
+  return (
+    <span className="level-badge-mini" style={{ color, borderColor: color }}>
+      ● Ур.{level}
+    </span>
+  );
 }
 
 function CustomBadge({ badge }) {
@@ -525,20 +538,28 @@ function CustomBadge({ badge }) {
 }
 
 const REACTION_EMOJIS = ["❤️", "🔥", "😂", "👀", "💯"];
+const PUBLIC_CHAT_REACTION_EMOJIS = ["❤️", "🔥", "😂", "👍", "😮"];
 
-function ReactionPicker({ reactions, myReaction, onReact }) {
+function ReactionPicker({ reactions, myReaction, onReact, emojiSet, reactors }) {
   const [open, setOpen] = useState(false);
+  const [showWho, setShowWho] = useState(false);
+  const options = emojiSet || REACTION_EMOJIS;
   const entries = Object.entries(reactions || {}).filter(([, count]) => count > 0);
   const total = entries.reduce((sum, [, count]) => sum + count, 0);
 
   return (
     <span className="reaction-picker" onClick={(e) => e.stopPropagation()}>
-      <span className="reaction-summary" onClick={() => setOpen((v) => !v)} role="button">
+      <span
+        className="reaction-summary"
+        onClick={() => (reactors && total > 0 ? setShowWho((v) => !v) : setOpen((v) => !v))}
+        onDoubleClick={() => setOpen((v) => !v)}
+        role="button"
+      >
         {entries.length > 0 ? entries.map(([emoji]) => emoji).join("") : "🤍"} {total > 0 ? total : ""}
       </span>
       {open && (
         <div className="reaction-menu">
-          {REACTION_EMOJIS.map((emoji) => (
+          {options.map((emoji) => (
             <span
               key={emoji}
               className={myReaction === emoji ? "reaction-option active" : "reaction-option"}
@@ -551,6 +572,18 @@ function ReactionPicker({ reactions, myReaction, onReact }) {
               {emoji}
             </span>
           ))}
+        </div>
+      )}
+      {showWho && reactors && (
+        <div className="reaction-who-menu">
+          {entries.map(([emoji]) => (
+            <p key={emoji} style={{ margin: "2px 0" }}>
+              {emoji} {(reactors[emoji] || []).join(", ")}
+            </p>
+          ))}
+          <span className="reaction-option" onClick={() => setOpen(true)} style={{ fontSize: 12 }}>
+            + свою реакцию
+          </span>
         </div>
       )}
     </span>
@@ -2172,6 +2205,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
 function ChatWidget({ isAdmin, isMobile }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [pinned, setPinned] = useState(null);
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -2180,6 +2214,12 @@ function ChatWidget({ isAdmin, isMobile }) {
   const [toast, setToast] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [contextMode, setContextMode] = useState(false);
+  const [contextTargetId, setContextTargetId] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const [pos, setPos] = useState(() => {
@@ -2196,8 +2236,10 @@ function ChatWidget({ isAdmin, isMobile }) {
     }
   });
   const endRef = useRef(null);
+  const messagesRef = useRef(null);
   const lastCountRef = useRef(0);
   const openRef = useRef(false);
+  const wasNearBottomRef = useRef(true);
   const toastTimerRef = useRef(null);
   const bubbleRef = useRef(null);
   const dragRef = useRef({ dragging: false, moved: false, startX: 0, startY: 0, offsetX: 0, offsetY: 0 });
@@ -2247,17 +2289,24 @@ function ChatWidget({ isAdmin, isMobile }) {
     dragRef.current.dragging = false;
   }
 
+  // Отслеживаем, был ли пользователь внизу списка перед обновлением — автоскролл только тогда
+  function checkNearBottom() {
+    const el = messagesRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
+
   const load = useCallback(() => {
+    if (contextMode) return; // в режиме "перехода к сообщению" обычный опрос не идёт
+    wasNearBottomRef.current = checkNearBottom();
     api
       .listPublicChat()
       .then((data) => {
-        setMessages((prev) => {
-          // Если только что отправили сообщение оптимистично (temp-id) — не откатываем его
-          // назад в "пусто", пока сервер не догонит, просто заменяем на настоящий список
-          return data;
-        });
-        if (data.length > lastCountRef.current) {
-          const freshOnes = data.slice(lastCountRef.current);
+        const list = data.messages || [];
+        setMessages(list);
+        setPinned(data.pinned || null);
+        if (list.length > lastCountRef.current) {
+          const freshOnes = list.slice(lastCountRef.current);
           const freshFromOthers = freshOnes.filter((m) => !m.is_mine);
           if (!openRef.current && freshFromOthers.length > 0) {
             setUnseen((u) => u + freshFromOthers.length);
@@ -2267,10 +2316,10 @@ function ChatWidget({ isAdmin, isMobile }) {
             showToast(last.author, last.content);
           }
         }
-        lastCountRef.current = data.length;
+        lastCountRef.current = list.length;
       })
       .catch((e) => setError(e.message));
-  }, []);
+  }, [contextMode]);
 
   function showToast(author, content) {
     clearTimeout(toastTimerRef.current);
@@ -2285,11 +2334,11 @@ function ChatWidget({ isAdmin, isMobile }) {
   }, [load]);
 
   useEffect(() => {
-    if (open) {
-      setUnseen(0);
+    if (open && !contextMode && wasNearBottomRef.current) {
       endRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [open, messages]);
+    if (open) setUnseen(0);
+  }, [open, messages, contextMode]);
 
   async function send(overrideText) {
     const text = (overrideText ?? input).trim();
@@ -2297,16 +2346,30 @@ function ChatWidget({ isAdmin, isMobile }) {
     setSending(true);
     setSendError("");
     setInput("");
+    const replyId = replyingTo?.id || null;
+    setReplyingTo(null);
 
     // Оптимистичное сообщение — появляется в чате мгновенно, ещё до ответа сервера
     const tempId = `temp-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
-      { id: tempId, content: text, author: "Ты", is_mine: true, author_avatar: null, created_at: new Date().toISOString() },
+      {
+        id: tempId,
+        content: text,
+        author: "Ты",
+        is_mine: true,
+        author_avatar: null,
+        created_at: new Date().toISOString(),
+        reply_to: replyingTo ? { id: replyingTo.id, author: replyingTo.author, content: replyingTo.content } : null,
+        reactions: {},
+        reactors: {},
+        my_reaction: null,
+      },
     ]);
+    wasNearBottomRef.current = true;
 
     try {
-      const res = await api.sendPublicChat(text);
+      const res = await api.sendPublicChat(text, replyId);
       if (res.status === "approved") {
         load(); // подтягиваем настоящую версию с сервера (с реальным id и т.д.)
       } else {
@@ -2374,6 +2437,66 @@ function ChatWidget({ isAdmin, isMobile }) {
     }
   }
 
+  function applyUpdatedMessage(updated) {
+    setMessages((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+    setPinned((p) => (p && p.id === updated.id ? { ...p, ...updated } : p));
+  }
+
+  async function react(messageId, emoji) {
+    try {
+      const updated = await api.reactToPublicChatMessage(messageId, emoji);
+      applyUpdatedMessage(updated);
+    } catch (e) {
+      alert("Не удалось поставить реакцию: " + e.message);
+    }
+  }
+
+  async function togglePin(messageId) {
+    try {
+      const updated = await api.pinPublicChatMessage(messageId);
+      load();
+      if (updated.is_pinned) setPinned(updated);
+      else setPinned(null);
+    } catch (e) {
+      alert("Не удалось закрепить: " + e.message);
+    }
+  }
+
+  async function runSearch() {
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      return;
+    }
+    try {
+      const results = await api.searchPublicChat(searchQuery.trim());
+      setSearchResults(results);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function jumpToMessage(id) {
+    try {
+      const data = await api.getPublicChatContext(id);
+      setMessages(data.messages);
+      setContextTargetId(data.target_id);
+      setContextMode(true);
+      setSearchOpen(false);
+      setSearchResults(null);
+      setTimeout(() => {
+        document.getElementById(`chat-msg-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+    } catch (e) {
+      alert("Не удалось найти сообщение: " + e.message);
+    }
+  }
+
+  function backToLive() {
+    setContextMode(false);
+    setContextTargetId(null);
+    load();
+  }
+
   return (
     <div className="chat-widget" style={!open && pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined}>
       {toast && !open && (
@@ -2398,6 +2521,13 @@ function ChatWidget({ isAdmin, isMobile }) {
           <div className="chat-widget-header">
             <span>🌍 Общий чат</span>
             <div className="inline-actions" style={{ gap: 8 }}>
+              <button
+                className="chat-widget-close"
+                onClick={() => setSearchOpen((v) => !v)}
+                title="Поиск по чату"
+              >
+                🔍
+              </button>
               {isAdmin && (
                 <button className="chat-widget-close" onClick={clearAll} title="Очистить весь чат (админ)">
                   🧹
@@ -2408,38 +2538,151 @@ function ChatWidget({ isAdmin, isMobile }) {
               </button>
             </div>
           </div>
+
+          {searchOpen && (
+            <div className="chat-widget-search">
+              <div className="chat-widget-composer" style={{ padding: "8px 10px" }}>
+                <input
+                  placeholder="Поиск по тексту или автору…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                  autoFocus
+                />
+                <button className="btn-primary" onClick={runSearch}>
+                  Найти
+                </button>
+              </div>
+              {searchResults && (
+                <div className="chat-search-results">
+                  {searchResults.length === 0 && <p className="empty-hint">Ничего не нашлось.</p>}
+                  {searchResults.map((r) => (
+                    <div key={r.id} className="chat-search-result" onClick={() => jumpToMessage(r.id)}>
+                      <span className="chat-widget-author" style={{ fontSize: 11 }}>{r.author}</span>
+                      <p style={{ margin: 0, fontSize: 13 }}>{r.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {pinned && !contextMode && (
+            <div className="chat-widget-pinned" onClick={() => jumpToMessage(pinned.id)}>
+              <span>📌</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span className="chat-widget-author" style={{ fontSize: 11 }}>{pinned.author}</span>
+                <p style={{ margin: 0, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {pinned.content}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {contextMode && (
+            <div className="chat-widget-pinned" onClick={backToLive} style={{ cursor: "pointer" }}>
+              <span>🔴</span>
+              <p style={{ margin: 0, fontSize: 12 }}>Просмотр сообщения — нажми, чтобы вернуться к живому чату</p>
+            </div>
+          )}
+
           {error && <p className="form-error" style={{ margin: "6px 10px" }}>{error}</p>}
-          <div className="chat-widget-messages">
+          <div className="chat-widget-messages" ref={messagesRef}>
             {messages.length === 0 && <p className="empty-hint">Пока пусто — напиши первым 👋</p>}
             {messages.map((m) => (
-              <div key={m.id} className={m.is_mine ? "chat-widget-msg mine" : "chat-widget-msg"}>
+              <div
+                key={m.id}
+                id={`chat-msg-${m.id}`}
+                className={
+                  m.is_mine
+                    ? "chat-widget-msg mine"
+                    : contextMode && m.id === contextTargetId
+                    ? "chat-widget-msg highlighted"
+                    : "chat-widget-msg"
+                }
+              >
                 {m.author_avatar ? (
-                  <img src={m.author_avatar} alt="" className="chat-widget-avatar" />
+                  <img
+                    src={m.author_avatar}
+                    alt=""
+                    className="chat-widget-avatar"
+                    onClick={() => openProfile(m.author_id)}
+                    style={{ cursor: "pointer" }}
+                  />
                 ) : (
-                  <span className="chat-widget-avatar-fallback">{m.author?.[0]?.toUpperCase()}</span>
+                  <span
+                    className="chat-widget-avatar-fallback"
+                    onClick={() => openProfile(m.author_id)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    {m.author?.[0]?.toUpperCase()}
+                  </span>
                 )}
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <p className="chat-widget-author">
                     <span className="clickable-name" onClick={() => openProfile(m.author_id)}>
                       {m.author}
                     </span>{" "}
                     <LevelBadge level={m.author_level} /> <CustomBadge badge={m.author_badge} />
                   </p>
+                  {m.reply_to && (
+                    <div className="chat-widget-reply-preview" onClick={() => jumpToMessage(m.reply_to.id)}>
+                      <span style={{ fontWeight: 700 }}>↩️ {m.reply_to.author}</span>
+                      <span>{m.reply_to.content}</span>
+                    </div>
+                  )}
                   <p className="chat-widget-bubble-text">{m.content}</p>
-                  {(m.is_mine || isAdmin) && (
+
+                  <div className="chat-widget-msg-actions">
+                    <ReactionPicker
+                      reactions={m.reactions}
+                      myReaction={m.my_reaction}
+                      onReact={(emoji) => react(m.id, emoji)}
+                      emojiSet={PUBLIC_CHAT_REACTION_EMOJIS}
+                      reactors={m.reactors}
+                    />
                     <button
                       className="btn-ghost small"
-                      onClick={() => removeMessage(m.id)}
+                      onClick={() => setReplyingTo({ id: m.id, author: m.author, content: m.content.slice(0, 80) })}
                       style={{ fontSize: 11, padding: "2px 4px" }}
                     >
-                      🗑
+                      ↩️
                     </button>
-                  )}
+                    {isAdmin && (
+                      <button
+                        className="btn-ghost small"
+                        onClick={() => togglePin(m.id)}
+                        style={{ fontSize: 11, padding: "2px 4px" }}
+                        title={m.is_pinned ? "Открепить" : "Закрепить"}
+                      >
+                        {m.is_pinned ? "📌" : "📍"}
+                      </button>
+                    )}
+                    {(m.is_mine || isAdmin) && (
+                      <button
+                        className="btn-ghost small"
+                        onClick={() => removeMessage(m.id)}
+                        style={{ fontSize: 11, padding: "2px 4px" }}
+                      >
+                        🗑
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
             <div ref={endRef} />
           </div>
+
+          {replyingTo && (
+            <div className="chat-widget-reply-bar">
+              <span>↩️ Ответ для <strong>{replyingTo.author}</strong>: {replyingTo.content}</span>
+              <button className="btn-ghost small" onClick={() => setReplyingTo(null)}>
+                ✕
+              </button>
+            </div>
+          )}
+
           <div className="chat-widget-composer">
             <input
               placeholder={isRecording ? "🔴 Идёт запись…" : transcribing ? "Распознаю…" : "Написать…"}
@@ -2467,6 +2710,7 @@ function ChatWidget({ isAdmin, isMobile }) {
     </div>
   );
 }
+
 
 // ==================== Верхняя панель: уведомления, связь, поддержка ====================
 

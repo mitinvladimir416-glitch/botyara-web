@@ -142,10 +142,15 @@ export const api = {
 
   // ---- Общий чат ----
   listPublicChat: () => request("/api/public-chat", { auth: true }),
-  sendPublicChat: (content) =>
-    request("/api/public-chat", { method: "POST", auth: true, body: { content } }),
+  sendPublicChat: (content, replyToId) =>
+    request("/api/public-chat", { method: "POST", auth: true, body: { content, reply_to_id: replyToId || null } }),
   deletePublicChatMessage: (id) => request(`/api/public-chat/${id}`, { method: "DELETE", auth: true }),
   clearPublicChat: () => request("/api/public-chat", { method: "DELETE", auth: true }),
+  reactToPublicChatMessage: (id, emoji) =>
+    request(`/api/public-chat/${id}/react`, { method: "POST", auth: true, body: { emoji } }),
+  pinPublicChatMessage: (id) => request(`/api/public-chat/${id}/pin`, { method: "POST", auth: true }),
+  searchPublicChat: (q) => request(`/api/public-chat/search?q=${encodeURIComponent(q)}`, { auth: true }),
+  getPublicChatContext: (id) => request(`/api/public-chat/context/${id}`, { auth: true }),
 
   // ---- Геймификация ----
   reactToGalleryPost: (postId, emoji) =>

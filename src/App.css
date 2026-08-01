@@ -1741,3 +1741,109 @@ textarea::placeholder {
     animation: none;
   }
 }
+
+/* ==================== Общий чат: ответы, закреп, поиск, реакции ==================== */
+
+.chat-widget-search {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface-2);
+}
+.chat-search-results {
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 0 10px 8px;
+}
+.chat-search-result {
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+.chat-search-result:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.chat-widget-pinned {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(139, 92, 246, 0.12);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.chat-widget-pinned:hover {
+  background: rgba(139, 92, 246, 0.2);
+}
+
+.chat-widget-msg.highlighted .chat-widget-bubble-text {
+  box-shadow: 0 0 0 2px var(--violet-glow);
+  animation: highlightPulse 1.6s ease 2;
+}
+@keyframes highlightPulse {
+  0%, 100% { background: var(--bg-surface-2); }
+  50% { background: rgba(139, 92, 246, 0.25); }
+}
+
+.chat-widget-reply-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-left: 2px solid var(--violet-glow);
+  padding: 3px 8px;
+  margin: 2px 0 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.chat-widget-msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.chat-widget-reply-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-surface-2);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.reaction-who-menu {
+  position: absolute;
+  bottom: 32px;
+  left: 0;
+  min-width: 140px;
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+}
+
+@keyframes chatMsgIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.chat-widget-msg {
+  animation: chatMsgIn 0.2s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-widget-msg,
+  .chat-widget-msg.highlighted .chat-widget-bubble-text {
+    animation: none;
+  }
+}
