@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { api, getToken, setToken } from "./api.js";
+import { api, getToken, setToken, WS_BASE } from "./api.js";
 
 const BOT_USERNAME = "halpervovan_bot"; // имя бота без @, для кнопки "Войти через Telegram"
 
@@ -139,7 +139,7 @@ export default function App() {
           />
         )}
       </main>
-      <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} />
+      <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
       {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
     </div>
   );
@@ -2202,7 +2202,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
 
 // ==================== Общий публичный чат ====================
 
-function ChatWidget({ isAdmin, isMobile }) {
+function ChatWidget({ isAdmin, isMobile, currentUserId }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [pinned, setPinned] = useState(null);
@@ -2329,13 +2329,60 @@ function ChatWidget({ isAdmin, isMobile }) {
 
   useEffect(() => {
     load();
-    // Пока окно чата свёрнуто — опрашиваем реже (12с), пока открыто — часто (2.5с) для живого ощущения.
-    // Плюс полностью пауза, если вкладка браузера сейчас не активна (фоновая) — незачем дёргать сервер впустую.
+    // Страховка на случай, если WebSocket не подключился или оборвался — редкий опрос,
+    // чтобы список точно не "залип" насовсем.
     const interval = setInterval(() => {
       if (!document.hidden) load();
-    }, open ? 2500 : 12000);
+    }, 8000);
     return () => clearInterval(interval);
-  }, [load, open]);
+  }, [load]);
+
+  const wsRef = useRef(null);
+  const wsReconnectTimerRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function connect() {
+      const token = getToken();
+      if (!token) return;
+      const ws = new WebSocket(`${WS_BASE}/ws/public-chat?token=${encodeURIComponent(token)}`);
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (data.type === "new_message") {
+          const msg = data.message;
+          const isMine = msg.author_id === currentUserId;
+          if (isMine) return; // своё сообщение уже показано оптимистично и подтвердится через load()
+          setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, { ...msg, is_mine: false, my_reaction: null }]));
+          if (!openRef.current) {
+            setUnseen((u) => u + 1);
+            showToast(msg.author, msg.content);
+          }
+        } else if (data.type === "refresh") {
+          load();
+        }
+      };
+
+      ws.onclose = () => {
+        if (!cancelled) wsReconnectTimerRef.current = setTimeout(connect, 3000);
+      };
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+    return () => {
+      cancelled = true;
+      clearTimeout(wsReconnectTimerRef.current);
+      wsRef.current?.close();
+    };
+  }, [load, currentUserId]);
 
   useEffect(() => {
     if (open && !contextMode && wasNearBottomRef.current) {

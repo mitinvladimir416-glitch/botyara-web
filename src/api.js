@@ -2,6 +2,7 @@
 // Когда появится собственный поддомен для API (например api.botyara.ru),
 // достаточно будет поменять только эту строку.
 const API_BASE = "https://mitinvladimir416-glitch-botyara-api-e748.twc1.net";
+export const WS_BASE = API_BASE.replace(/^http/, "ws");
 
 const TOKEN_KEY = "botyara_token";
 
