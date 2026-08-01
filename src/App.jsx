@@ -2631,6 +2631,7 @@ function RoomDetail({ code, onBack }) {
   const [sending, setSending] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [channel, setChannel] = useState("ai"); // "ai" | "team"
   const endRef = useRef(null);
 
   const load = useCallback(() => {
@@ -2648,7 +2649,7 @@ function RoomDetail({ code, onBack }) {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [room]);
+  }, [room, channel]);
 
   async function send() {
     const text = input.trim();
@@ -2656,7 +2657,7 @@ function RoomDetail({ code, onBack }) {
     setSending(true);
     setInput("");
     try {
-      const updated = await api.sendRoomMessage(code, text);
+      const updated = await api.sendRoomMessage(code, text, channel);
       setRoom(updated);
     } catch (e) {
       setError(e.message);
@@ -2701,6 +2702,10 @@ function RoomDetail({ code, onBack }) {
     );
   }
 
+  const visibleMessages = room.messages.filter((m) => (m.channel || "ai") === channel);
+  const aiCount = room.messages.filter((m) => (m.channel || "ai") === "ai").length;
+  const teamCount = room.messages.filter((m) => m.channel === "team").length;
+
   return (
     <div className="view bt-wide">
       <ScreenHeader title={`🤝 Комната ${room.code}`} subtitle={ROOM_CATEGORY_LABELS[room.category] || room.category} />
@@ -2735,9 +2740,28 @@ function RoomDetail({ code, onBack }) {
         </div>
       )}
 
-      <div className="chat-log" style={{ marginTop: 16 }}>
-        {room.messages.length === 0 && <p className="empty-hint">Пока пусто — начни разговор 👇</p>}
-        {room.messages.map((m) => (
+      <div className="chip-row" style={{ marginTop: 16 }}>
+        <button className={channel === "ai" ? "chip active" : "chip"} onClick={() => setChannel("ai")}>
+          🤖 С нейросетью {aiCount > 0 ? `(${aiCount})` : ""}
+        </button>
+        <button className={channel === "team" ? "chip active" : "chip"} onClick={() => setChannel("team")}>
+          💬 Между собой {teamCount > 0 ? `(${teamCount})` : ""}
+        </button>
+      </div>
+      {channel === "team" && (
+        <p className="empty-hint" style={{ marginTop: 4 }}>
+          Это приватное обсуждение — нейросеть его не видит. Обсудите идею здесь, а когда договоритесь —
+          переключитесь на «С нейросетью» и предложите её.
+        </p>
+      )}
+
+      <div className="chat-log" style={{ marginTop: 12 }}>
+        {visibleMessages.length === 0 && (
+          <p className="empty-hint">
+            {channel === "ai" ? "Пока пусто — начни разговор с нейросетью 👇" : "Пока пусто — обсудите идею вдвоём 👇"}
+          </p>
+        )}
+        {visibleMessages.map((m) => (
           <div key={m.id} style={{ alignSelf: m.is_mine ? "flex-end" : "flex-start", maxWidth: "85%" }}>
             {!m.is_mine && (
               <p className="empty-hint" style={{ fontSize: 12, margin: "0 0 2px 4px" }}>
@@ -2755,7 +2779,7 @@ function RoomDetail({ code, onBack }) {
         <>
           <div className="composer" style={{ marginTop: 12 }}>
             <input
-              placeholder="Напиши идею…"
+              placeholder={channel === "ai" ? "Напиши идею для нейросети…" : "Напиши напарнику…"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
