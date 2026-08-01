@@ -160,4 +160,5 @@ export const api = {
     request(`/api/rooms/${code}/messages`, { method: "POST", auth: true, body: { content, channel } }),
   finishRoom: (code) => request(`/api/rooms/${code}/finish`, { method: "POST", auth: true }),
   listMyRooms: () => request("/api/rooms", { auth: true }),
+  deleteRoom: (code) => request(`/api/rooms/${code}`, { method: "DELETE", auth: true }),
 };

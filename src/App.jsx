@@ -2493,7 +2493,8 @@ function AdminView() {
 // ==================== Совместные комнаты ====================
 
 const ROOM_CATEGORY_LABELS = {
-  suno: "🎵 Suno",
+  lyrics: "📝 Текст песни",
+  suno: "🎵 Suno-промпт",
   image: "🖼 Картинка",
   video: "🎬 Видео",
   other: "💬 Общий промпт",
@@ -2515,6 +2516,17 @@ function RoomsView() {
   }, []);
 
   useEffect(load, [load]);
+
+  async function removeRoom(code, e) {
+    e.stopPropagation();
+    if (!window.confirm(`Удалить комнату ${code} целиком? Это нельзя отменить.`)) return;
+    try {
+      await api.deleteRoom(code);
+      load();
+    } catch (err) {
+      alert("Не удалось удалить: " + err.message);
+    }
+  }
 
   // Если перешли по пригласительной ссылке ?room=CODE — сразу присоединяемся
   useEffect(() => {
@@ -2615,6 +2627,16 @@ function RoomsView() {
                     {r.status === "finished" ? "✅ Завершена" : "🟢 Открыта"}
                   </p>
                 </div>
+                {r.is_owner && (
+                  <span
+                    className="btn-ghost small"
+                    onClick={(e) => removeRoom(r.code, e)}
+                    title="Удалить комнату"
+                    style={{ cursor: "pointer" }}
+                  >
+                    🗑
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -2691,6 +2713,16 @@ function RoomDetail({ code, onBack }) {
     setTimeout(() => setCopied(false), 1500);
   }
 
+  async function deleteThisRoom() {
+    if (!window.confirm(`Удалить комнату ${code} целиком? Это нельзя отменить.`)) return;
+    try {
+      await api.deleteRoom(code);
+      onBack();
+    } catch (e) {
+      alert("Не удалось удалить: " + e.message);
+    }
+  }
+
   if (!room) {
     return (
       <div className="view">
@@ -2729,6 +2761,11 @@ function RoomDetail({ code, onBack }) {
         {room.status === "open" && (
           <button className="chip" onClick={copyInvite} title="Скопировать ссылку-приглашение">
             {copied ? "✅ Скопировано" : "🔗 Пригласить"}
+          </button>
+        )}
+        {room.is_owner && (
+          <button className="chip" onClick={deleteThisRoom} title="Удалить комнату" style={{ color: "#f87171" }}>
+            🗑 Удалить комнату
           </button>
         )}
       </div>
