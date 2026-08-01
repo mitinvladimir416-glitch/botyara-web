@@ -2329,9 +2329,13 @@ function ChatWidget({ isAdmin, isMobile }) {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 2500); // быстрее, чем раньше (было 5с) — чат ощущается живее
+    // Пока окно чата свёрнуто — опрашиваем реже (12с), пока открыто — часто (2.5с) для живого ощущения.
+    // Плюс полностью пауза, если вкладка браузера сейчас не активна (фоновая) — незачем дёргать сервер впустую.
+    const interval = setInterval(() => {
+      if (!document.hidden) load();
+    }, open ? 2500 : 12000);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [load, open]);
 
   useEffect(() => {
     if (open && !contextMode && wasNearBottomRef.current) {
@@ -2812,7 +2816,9 @@ function TopBar() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 15000);
+    const interval = setInterval(() => {
+      if (!document.hidden) load();
+    }, 15000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -2929,7 +2935,9 @@ function AdminView({ isAdmin }) {
 
   useEffect(() => {
     loadAll();
-    const interval = setInterval(loadAll, 30000);
+    const interval = setInterval(() => {
+      if (!document.hidden) loadAll();
+    }, 30000);
     return () => clearInterval(interval);
   }, [loadAll]);
 
@@ -3289,7 +3297,9 @@ function RoomDetail({ code, onBack }) {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 3000);
+    const interval = setInterval(() => {
+      if (!document.hidden) load();
+    }, 3000);
     return () => clearInterval(interval);
   }, [load]);
 
