@@ -145,6 +145,7 @@ export const api = {
   toggleGalleryLike: (postId) => request(`/api/gallery/${postId}/like`, { method: "POST", auth: true }),
   listAchievements: () => request("/api/achievements", { auth: true }),
   listNotifications: () => request("/api/notifications", { auth: true }),
+  clearNotifications: () => request("/api/notifications", { method: "DELETE", auth: true }),
 
   // ---- Админ-панель ----
   adminStats: () => request("/api/admin/stats", { auth: true }),

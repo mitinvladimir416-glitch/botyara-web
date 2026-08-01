@@ -2004,11 +2004,70 @@ function ChatWidget({ isAdmin, isMobile }) {
   const [sendError, setSendError] = useState("");
   const [unseen, setUnseen] = useState(0);
   const [toast, setToast] = useState(null);
+  const [pos, setPos] = useState(() => {
+    try {
+      const saved = localStorage.getItem("botyara_chat_widget_pos");
+      if (!saved) return null;
+      const p = JSON.parse(saved);
+      return {
+        x: Math.min(Math.max(0, p.x), window.innerWidth - 56),
+        y: Math.min(Math.max(0, p.y), window.innerHeight - 56),
+      };
+    } catch {
+      return null;
+    }
+  });
   const endRef = useRef(null);
   const lastCountRef = useRef(0);
   const openRef = useRef(false);
   const toastTimerRef = useRef(null);
+  const bubbleRef = useRef(null);
+  const dragRef = useRef({ dragging: false, moved: false, startX: 0, startY: 0, offsetX: 0, offsetY: 0 });
   openRef.current = open;
+
+  function handleBubblePointerDown(e) {
+    const rect = bubbleRef.current.getBoundingClientRect();
+    dragRef.current = {
+      dragging: true,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+    };
+    window.addEventListener("pointermove", handleBubblePointerMove);
+    window.addEventListener("pointerup", handleBubblePointerUp);
+  }
+
+  function handleBubblePointerMove(e) {
+    const d = dragRef.current;
+    if (!d.dragging) return;
+    if (!d.moved && (Math.abs(e.clientX - d.startX) > 4 || Math.abs(e.clientY - d.startY) > 4)) {
+      d.moved = true;
+    }
+    if (d.moved) {
+      const size = 56;
+      const x = Math.min(Math.max(0, e.clientX - d.offsetX), window.innerWidth - size);
+      const y = Math.min(Math.max(0, e.clientY - d.offsetY), window.innerHeight - size);
+      setPos({ x, y });
+    }
+  }
+
+  function handleBubblePointerUp() {
+    const d = dragRef.current;
+    window.removeEventListener("pointermove", handleBubblePointerMove);
+    window.removeEventListener("pointerup", handleBubblePointerUp);
+    if (d.moved) {
+      setPos((p) => {
+        if (p) localStorage.setItem("botyara_chat_widget_pos", JSON.stringify(p));
+        return p;
+      });
+    } else {
+      // не двигали — значит это был обычный клик, открываем чат
+      setOpen(true);
+    }
+    dragRef.current.dragging = false;
+  }
 
   const load = useCallback(() => {
     api
@@ -2104,7 +2163,7 @@ function ChatWidget({ isAdmin, isMobile }) {
   }
 
   return (
-    <div className="chat-widget">
+    <div className="chat-widget" style={!open && pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined}>
       {toast && !open && (
         <div className="chat-widget-toast" onClick={() => setOpen(true)}>
           <span className="chat-widget-toast-author">💬 {toast.author}</span>
@@ -2112,7 +2171,12 @@ function ChatWidget({ isAdmin, isMobile }) {
         </div>
       )}
       {!open && (
-        <button className="chat-widget-bubble" onClick={() => setOpen(true)} title="Общий чат">
+        <button
+          ref={bubbleRef}
+          className="chat-widget-bubble"
+          onPointerDown={handleBubblePointerDown}
+          title="Общий чат — клик открывает, перетаскивание перемещает"
+        >
           💬
           {unseen > 0 && <span className="chat-widget-badge">{unseen > 9 ? "9+" : unseen}</span>}
         </button>
@@ -2228,12 +2292,24 @@ function TopBar() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(null);
   const [unseen, setUnseen] = useState(0);
+  const [clearing, setClearing] = useState(false);
+
+  function getHiddenAnnouncementIds() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("botyara_hidden_announcements") || "[]"));
+    } catch {
+      return new Set();
+    }
+  }
 
   const load = useCallback(() => {
     Promise.all([api.listAnnouncements(), api.listNotifications()])
       .then(([announcements, notifications]) => {
+        const hidden = getHiddenAnnouncementIds();
         const merged = [
-          ...announcements.map((a) => ({ uid: `a-${a.id}`, content: a.content, created_at: a.created_at, icon: "📢" })),
+          ...announcements
+            .filter((a) => !hidden.has(a.id))
+            .map((a) => ({ uid: `a-${a.id}`, content: a.content, created_at: a.created_at, icon: "📢" })),
           ...notifications.map((n) => ({ uid: `n-${n.id}`, content: n.content, created_at: n.created_at, icon: "" })),
         ].sort((x, y) => new Date(y.created_at) - new Date(x.created_at));
         setItems(merged);
@@ -2261,6 +2337,25 @@ function TopBar() {
     });
   }
 
+  async function clearShade() {
+    setClearing(true);
+    try {
+      // Личные уведомления удаляем на сервере
+      await api.clearNotifications();
+    } catch {
+      /* не критично — всё равно скроем видимое ниже */
+    }
+    // Общие оповещения не удаляем для всех — просто скрываем у себя навсегда
+    const hidden = getHiddenAnnouncementIds();
+    (items || [])
+      .filter((i) => i.uid.startsWith("a-"))
+      .forEach((i) => hidden.add(Number(i.uid.slice(2))));
+    localStorage.setItem("botyara_hidden_announcements", JSON.stringify([...hidden]));
+    setItems([]);
+    setUnseen(0);
+    setClearing(false);
+  }
+
   return (
     <div className="top-actions">
       <div style={{ position: "relative" }}>
@@ -2270,9 +2365,16 @@ function TopBar() {
         </button>
         {open && (
           <div className="announcements-panel">
-            <p className="step-question" style={{ marginTop: 0 }}>
-              🔔 Обновления и уведомления
-            </p>
+            <div className="inline-actions" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+              <p className="step-question" style={{ marginTop: 0, marginBottom: 0 }}>
+                🔔 Обновления и уведомления
+              </p>
+              {items && items.length > 0 && (
+                <button className="btn-ghost small" onClick={clearShade} disabled={clearing}>
+                  {clearing ? "…" : "🗑 Очистить"}
+                </button>
+              )}
+            </div>
             {items === null && <p className="empty-hint">Загружаю…</p>}
             {items && items.length === 0 && <p className="empty-hint">Пока новостей нет.</p>}
             {items?.map((i) => (
