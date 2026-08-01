@@ -64,6 +64,8 @@ export const api = {
   promptTopics: () => request("/api/prompt/topics"),
   prompt: (topic, target, history) =>
     request("/api/prompt", { method: "POST", body: { topic, target, history } }),
+  improvePrompt: (topic, target, draft) =>
+    request("/api/prompt/improve", { method: "POST", body: { topic, target, draft } }),
   promptImageFromPhoto: (file, desiredChange) => {
     const form = new FormData();
     form.append("photo", file);
@@ -118,7 +120,7 @@ export const api = {
   // ---- Галерея промптов ----
   publishToGallery: (favoriteId) =>
     request("/api/gallery/publish", { method: "POST", auth: true, body: { favorite_id: favoriteId } }),
-  listGallery: () => request("/api/gallery", { auth: true }),
+  listGallery: (q) => request(`/api/gallery${q ? `?q=${encodeURIComponent(q)}` : ""}`, { auth: true }),
   getGalleryPost: (id) => request(`/api/gallery/${id}`, { auth: true }),
   addGalleryComment: (id, content) =>
     request(`/api/gallery/${id}/comments`, { method: "POST", auth: true, body: { content } }),
@@ -142,7 +144,8 @@ export const api = {
   clearPublicChat: () => request("/api/public-chat", { method: "DELETE", auth: true }),
 
   // ---- Геймификация ----
-  toggleGalleryLike: (postId) => request(`/api/gallery/${postId}/like`, { method: "POST", auth: true }),
+  reactToGalleryPost: (postId, emoji) =>
+    request(`/api/gallery/${postId}/react`, { method: "POST", auth: true, body: { emoji } }),
   listAchievements: () => request("/api/achievements", { auth: true }),
   listNotifications: () => request("/api/notifications", { auth: true }),
   clearNotifications: () => request("/api/notifications", { method: "DELETE", auth: true }),
@@ -163,6 +166,8 @@ export const api = {
   sendRoomMessage: (code, content, channel = "ai") =>
     request(`/api/rooms/${code}/messages`, { method: "POST", auth: true, body: { content, channel } }),
   finishRoom: (code) => request(`/api/rooms/${code}/finish`, { method: "POST", auth: true }),
+  pingRoomTyping: (code) => request(`/api/rooms/${code}/typing`, { method: "POST", auth: true }),
+  getPublicProfile: (userId) => request(`/api/users/${userId}/public`, { auth: true }),
   listMyRooms: () => request("/api/rooms", { auth: true }),
   deleteRoom: (code) => request(`/api/rooms/${code}`, { method: "DELETE", auth: true }),
 };

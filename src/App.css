@@ -1628,3 +1628,116 @@ textarea::placeholder {
 .bot-login-command:hover {
   border-color: var(--violet-glow);
 }
+
+/* ==================== Реакции на посты галереи ==================== */
+
+.reaction-picker {
+  position: relative;
+  display: inline-block;
+}
+.reaction-summary {
+  cursor: pointer;
+  font-size: 14px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s ease;
+}
+.reaction-summary:hover {
+  border-color: var(--violet-glow);
+}
+.reaction-menu {
+  position: absolute;
+  bottom: 32px;
+  left: 0;
+  display: flex;
+  gap: 4px;
+  background: var(--bg-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 6px 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+}
+.reaction-option {
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 4px;
+  border-radius: 50%;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.reaction-option:hover {
+  transform: scale(1.25);
+  background: rgba(255, 255, 255, 0.08);
+}
+.reaction-option.active {
+  background: rgba(139, 92, 246, 0.25);
+}
+
+/* ==================== Кликабельные имена (открывают публичный профиль) ==================== */
+
+.clickable-name {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.clickable-name:hover {
+  color: var(--violet-glow);
+  text-decoration: underline;
+}
+
+/* ==================== Индикатор "печатает" в комнатах ==================== */
+
+@keyframes typingPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.typing-indicator {
+  animation: typingPulse 1.4s ease-in-out infinite;
+  font-style: italic;
+}
+
+/* ==================== Всплывающий эффект получения достижения ==================== */
+
+@keyframes celebrationPop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+  25% { transform: translate(-50%, -50%) scale(1); }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+}
+.achievement-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.achievement-celebration-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  animation: celebrationPop 3.5s ease both;
+  background: var(--bg-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--violet-glow);
+  border-radius: var(--radius);
+  padding: 24px 32px;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(139, 92, 246, 0.5), 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+.achievement-celebration-emoji {
+  font-size: 48px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-indicator,
+  .achievement-celebration-card {
+    animation: none;
+  }
+}

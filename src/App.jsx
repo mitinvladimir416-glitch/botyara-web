@@ -37,6 +37,15 @@ export default function App() {
     if (saved === "mobile" || saved === "desktop") return saved;
     return window.innerWidth <= 780 ? "mobile" : "desktop";
   });
+  const [profileUserId, setProfileUserId] = useState(null);
+
+  useEffect(() => {
+    function handler(e) {
+      setProfileUserId(e.detail);
+    }
+    window.addEventListener("botyara-open-profile", handler);
+    return () => window.removeEventListener("botyara-open-profile", handler);
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -129,8 +138,15 @@ export default function App() {
         )}
       </main>
       <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} />
+      {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
     </div>
   );
+}
+
+// Вызывается кликом по имени автора где угодно на сайте — открывает публичный профиль
+function openProfile(userId) {
+  if (!userId) return;
+  window.dispatchEvent(new CustomEvent("botyara-open-profile", { detail: userId }));
 }
 
 // ==================== Плавающие частицы (фоновая атмосфера) ==================== 
@@ -506,6 +522,39 @@ function CustomBadge({ badge }) {
   );
 }
 
+const REACTION_EMOJIS = ["❤️", "🔥", "😂", "👀", "💯"];
+
+function ReactionPicker({ reactions, myReaction, onReact }) {
+  const [open, setOpen] = useState(false);
+  const entries = Object.entries(reactions || {}).filter(([, count]) => count > 0);
+  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+
+  return (
+    <span className="reaction-picker" onClick={(e) => e.stopPropagation()}>
+      <span className="reaction-summary" onClick={() => setOpen((v) => !v)} role="button">
+        {entries.length > 0 ? entries.map(([emoji]) => emoji).join("") : "🤍"} {total > 0 ? total : ""}
+      </span>
+      {open && (
+        <div className="reaction-menu">
+          {REACTION_EMOJIS.map((emoji) => (
+            <span
+              key={emoji}
+              className={myReaction === emoji ? "reaction-option active" : "reaction-option"}
+              onClick={(e) => {
+                e.stopPropagation();
+                onReact(emoji);
+                setOpen(false);
+              }}
+            >
+              {emoji}
+            </span>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
+
 function ScreenHeader({ title, subtitle }) {
   return (
     <div className="screen-header">
@@ -626,6 +675,19 @@ function ChatView() {
     } catch (e) {
       alert("Не удалось очистить историю: " + e.message);
     }
+  }
+
+  function exportHistory() {
+    const roleLabel = currentRole?.label || "Общение";
+    const lines = history.map((m) => `${m.role === "user" ? "Ты" : "Ботяра"}: ${m.content}`);
+    const text = `Переписка — ${roleLabel}\n${new Date().toLocaleString("ru-RU")}\n\n${lines.join("\n\n")}`;
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `botyara-${roleLabel}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const currentRole = roles?.[activeRole];
@@ -773,6 +835,11 @@ function ChatView() {
         </div>
 
         <div className="bt-toolbar">
+          {history.length > 0 && (
+            <button className="bt-reset-btn" onClick={exportHistory} style={{ marginRight: 8 }}>
+              ⬇️ Скачать историю
+            </button>
+          )}
           <button className="bt-reset-btn" onClick={resetChat}>
             🗑 Начать заново
           </button>
@@ -941,6 +1008,11 @@ function PromptsView() {
   const [frameDescription, setFrameDescription] = useState("");
   const [framesLoading, setFramesLoading] = useState(false);
 
+  // С чего начинаем — с чистого листа или прокачиваем уже готовый черновик
+  const [startMode, setStartMode] = useState(null); // null | "fresh" | "improve"
+  const [draftText, setDraftText] = useState("");
+  const [improving, setImproving] = useState(false);
+
   useEffect(() => {
     api.promptTopics().then(setTopics).catch(() => setTopics({}));
   }, []);
@@ -953,6 +1025,24 @@ function PromptsView() {
     setFirstFrameFile(null);
     setLastFrameFile(null);
     setFrameDescription("");
+    setStartMode(null);
+    setDraftText("");
+  }
+
+  async function submitImprove() {
+    if (improving || !draftText.trim()) return;
+    setImproving(true);
+    try {
+      const { reply } = await api.improvePrompt(topic, target, draftText);
+      setHistory([
+        { role: "user", content: draftText },
+        { role: "assistant", content: reply },
+      ]);
+    } catch (e) {
+      setHistory([{ role: "assistant", content: "Ошибка: " + e.message }]);
+    } finally {
+      setImproving(false);
+    }
   }
 
   async function submitFrames() {
@@ -1044,7 +1134,47 @@ function PromptsView() {
     );
   }
 
-  if (topic === "video" && framesChoice === null) {
+  if (!startMode) {
+    return (
+      <div className="view">
+        <ScreenHeader title={`${topics[topic].label} · ${target}`} subtitle="Как начнём?" />
+        <div className="chip-row">
+          <button className="chip" onClick={() => setStartMode("fresh")}>
+            💬 Начать с чистого листа
+          </button>
+          <button className="chip" onClick={() => setStartMode("improve")}>
+            ✨ Улучшить готовый черновик
+          </button>
+        </div>
+        <button className="btn-ghost" onClick={resetToTopics}>
+          ◀️ К темам
+        </button>
+      </div>
+    );
+  }
+
+  if (startMode === "improve" && history.length === 0) {
+    return (
+      <div className="view">
+        <ScreenHeader title={`${topics[topic].label} · ${target}`} subtitle="Вставь черновик — нейросеть его прокачает" />
+        <textarea
+          className="textarea"
+          rows={6}
+          placeholder="Вставь свой черновик промпта — даже сырой и неполный…"
+          value={draftText}
+          onChange={(e) => setDraftText(e.target.value)}
+        />
+        <button className="btn-primary" disabled={!draftText.trim() || improving} onClick={submitImprove}>
+          {improving ? "Прокачиваю…" : "✨ Прокачать промпт"}
+        </button>
+        <button className="btn-ghost" onClick={() => setStartMode(null)}>
+          ◀️ Назад
+        </button>
+      </div>
+    );
+  }
+
+  if (topic === "video" && framesChoice === null && startMode === "fresh") {
     return (
       <div className="view">
         <ScreenHeader
@@ -1738,25 +1868,26 @@ function GalleryView({ isAdmin }) {
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(() => {
     api
-      .listGallery()
+      .listGallery(search)
       .then(setPosts)
       .catch((e) => setError(e.message));
-  }, []);
+  }, [search]);
 
   useEffect(load, [load]);
 
-  async function toggleLike(postId, e) {
-    e.stopPropagation();
+  async function react(postId, emoji) {
     try {
-      const res = await api.toggleGalleryLike(postId);
+      const res = await api.reactToGalleryPost(postId, emoji);
       setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, liked_by_me: res.liked, like_count: res.like_count } : p))
+        prev.map((p) => (p.id === postId ? { ...p, reactions: res.reactions, my_reaction: res.my_reaction } : p))
       );
     } catch (err) {
-      alert("Не удалось поставить лайк: " + err.message);
+      alert("Не удалось поставить реакцию: " + err.message);
     }
   }
 
@@ -1779,10 +1910,34 @@ function GalleryView({ isAdmin }) {
   return (
     <div className="view">
       <ScreenHeader title="Галерея" subtitle="Промпты, которыми поделились пользователи" />
+      <div className="composer" style={{ marginBottom: 12 }}>
+        <input
+          placeholder="🔍 Поиск по промптам…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && setSearch(searchInput)}
+        />
+        <button className="btn-secondary" onClick={() => setSearch(searchInput)}>
+          Найти
+        </button>
+        {search && (
+          <button
+            className="btn-ghost"
+            onClick={() => {
+              setSearchInput("");
+              setSearch("");
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
       {error && <p className="form-error">{error}</p>}
       {posts && posts.length === 0 && (
         <p className="empty-hint">
-          Пока пусто — опубликуй что-нибудь из "Избранного" кнопкой "📢 В галерею".
+          {search
+            ? `Ничего не нашлось по запросу «${search}».`
+            : 'Пока пусто — опубликуй что-нибудь из "Избранного" кнопкой "📢 В галерею".'}
         </p>
       )}
 
@@ -1825,18 +1980,23 @@ function GalleryView({ isAdmin }) {
                   style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }}
                 />
               ) : null}
-              <span className="empty-hint" style={{ fontSize: 13 }}>
+              <span
+                className="empty-hint clickable-name"
+                style={{ fontSize: 13 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openProfile(post.author_id);
+                }}
+              >
                 {post.is_mine ? "Ты" : post.author}
               </span>
               <LevelBadge level={post.author_level} />
               <CustomBadge badge={post.author_badge} />
-              <span
-                className={post.liked_by_me ? "like-btn liked" : "like-btn"}
-                onClick={(e) => toggleLike(post.id, e)}
-                role="button"
-              >
-                {post.liked_by_me ? "❤️" : "🤍"} {post.like_count || 0}
-              </span>
+              <ReactionPicker
+                reactions={post.reactions}
+                myReaction={post.my_reaction}
+                onReact={(emoji) => react(post.id, emoji)}
+              />
               <span className="empty-hint" style={{ fontSize: 13 }}>
                 💬 {post.comment_count}
               </span>
@@ -1905,12 +2065,12 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
     }
   }
 
-  async function toggleLike() {
+  async function react(emoji) {
     try {
-      const res = await api.toggleGalleryLike(postId);
-      setPost((p) => ({ ...p, liked_by_me: res.liked, like_count: res.like_count }));
+      const res = await api.reactToGalleryPost(postId, emoji);
+      setPost((p) => ({ ...p, reactions: res.reactions, my_reaction: res.my_reaction }));
     } catch (e) {
-      alert("Не удалось поставить лайк: " + e.message);
+      alert("Не удалось поставить реакцию: " + e.message);
     }
   }
 
@@ -1933,7 +2093,11 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
                   style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover" }}
                 />
               ) : null}
-              <p className="result-label" style={{ margin: 0 }}>
+              <p
+                className="result-label clickable-name"
+                style={{ margin: 0 }}
+                onClick={() => openProfile(post.author_id)}
+              >
                 {post.is_mine ? "Ты" : post.author}
               </p>
               <LevelBadge level={post.author_level} />
@@ -1941,13 +2105,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
             </div>
             <p style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
             <div className="inline-actions" style={{ marginTop: 10 }}>
-              <span
-                className={post.liked_by_me ? "like-btn liked" : "like-btn"}
-                onClick={toggleLike}
-                role="button"
-              >
-                {post.liked_by_me ? "❤️" : "🤍"} {post.like_count || 0}
-              </span>
+              <ReactionPicker reactions={post.reactions} myReaction={post.my_reaction} onReact={react} />
             </div>
           </div>
 
@@ -1973,7 +2131,10 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
                 ) : null}
                 <div style={{ flex: 1 }}>
                   <p className="result-label" style={{ marginBottom: 4 }}>
-                    {c.author} <LevelBadge level={c.author_level} /> <CustomBadge badge={c.author_badge} />
+                    <span className="clickable-name" onClick={() => openProfile(c.author_id)}>
+                      {c.author}
+                    </span>{" "}
+                    <LevelBadge level={c.author_level} /> <CustomBadge badge={c.author_badge} />
                   </p>
                   <p>{c.content}</p>
                 </div>
@@ -2015,6 +2176,10 @@ function ChatWidget({ isAdmin, isMobile }) {
   const [sendError, setSendError] = useState("");
   const [unseen, setUnseen] = useState(0);
   const [toast, setToast] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const [pos, setPos] = useState(() => {
     try {
       const saved = localStorage.getItem("botyara_chat_widget_pos");
@@ -2124,8 +2289,8 @@ function ChatWidget({ isAdmin, isMobile }) {
     }
   }, [open, messages]);
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText) {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
     setSending(true);
     setSendError("");
@@ -2151,6 +2316,40 @@ function ChatWidget({ isAdmin, isMobile }) {
       setSendError("Ошибка: " + e.message);
     } finally {
       setSending(false);
+    }
+  }
+
+  async function toggleVoiceInput() {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setTranscribing(true);
+        try {
+          const { text } = await api.transcribeVoice(blob);
+          if (text && text.trim()) await send(text.trim());
+        } catch (e) {
+          setSendError("Не удалось распознать голос: " + e.message);
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch (e) {
+      alert("Не удалось получить доступ к микрофону: " + e.message);
     }
   }
 
@@ -2219,7 +2418,10 @@ function ChatWidget({ isAdmin, isMobile }) {
                 )}
                 <div>
                   <p className="chat-widget-author">
-                    {m.author} <LevelBadge level={m.author_level} /> <CustomBadge badge={m.author_badge} />
+                    <span className="clickable-name" onClick={() => openProfile(m.author_id)}>
+                      {m.author}
+                    </span>{" "}
+                    <LevelBadge level={m.author_level} /> <CustomBadge badge={m.author_badge} />
                   </p>
                   <p className="chat-widget-bubble-text">{m.content}</p>
                   {(m.is_mine || isAdmin) && (
@@ -2238,12 +2440,22 @@ function ChatWidget({ isAdmin, isMobile }) {
           </div>
           <div className="chat-widget-composer">
             <input
-              placeholder="Написать…"
+              placeholder={isRecording ? "🔴 Идёт запись…" : transcribing ? "Распознаю…" : "Написать…"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
+              disabled={isRecording || transcribing}
             />
-            <button className="btn-primary" onClick={send} disabled={sending}>
+            <button
+              className={isRecording ? "btn-secondary" : "btn-ghost"}
+              onClick={toggleVoiceInput}
+              disabled={transcribing}
+              title="Голосовое сообщение"
+              style={isRecording ? { color: "#f87171" } : undefined}
+            >
+              {isRecording ? "⏹" : "🎤"}
+            </button>
+            <button className="btn-primary" onClick={() => send()} disabled={sending || isRecording || transcribing}>
               ➤
             </button>
           </div>
@@ -2304,10 +2516,19 @@ function TopBar() {
   const [items, setItems] = useState(null);
   const [unseen, setUnseen] = useState(0);
   const [clearing, setClearing] = useState(false);
+  const [celebration, setCelebration] = useState(null);
 
   function getHiddenAnnouncementIds() {
     try {
       return new Set(JSON.parse(localStorage.getItem("botyara_hidden_announcements") || "[]"));
+    } catch {
+      return new Set();
+    }
+  }
+
+  function getCelebratedIds() {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("botyara_celebrated_achievements") || "[]"));
     } catch {
       return new Set();
     }
@@ -2327,6 +2548,18 @@ function TopBar() {
         const lastSeenTime = Number(localStorage.getItem("botyara_last_seen_time") || 0);
         const newer = merged.filter((i) => new Date(i.created_at).getTime() > lastSeenTime).length;
         setUnseen(newer);
+
+        // Празднуем новое достижение всплывающим эффектом (один раз на каждое)
+        const celebrated = getCelebratedIds();
+        const freshAchievement = notifications.find(
+          (n) => n.content.startsWith("🏅 Новое достижение") && !celebrated.has(n.id)
+        );
+        if (freshAchievement) {
+          celebrated.add(freshAchievement.id);
+          localStorage.setItem("botyara_celebrated_achievements", JSON.stringify([...celebrated]));
+          setCelebration(freshAchievement.content.replace("🏅 Новое достижение: ", ""));
+          setTimeout(() => setCelebration(null), 3500);
+        }
       })
       .catch(() => setItems([]));
   }, []);
@@ -2368,7 +2601,17 @@ function TopBar() {
   }
 
   return (
-    <div className="top-actions">
+    <>
+      {celebration && (
+        <div className="achievement-celebration">
+          <div className="achievement-celebration-card">
+            <div className="achievement-celebration-emoji">🏆</div>
+            <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Новое достижение!</p>
+            <p style={{ margin: "4px 0 0" }}>{celebration}</p>
+          </div>
+        </div>
+      )}
+      <div className="top-actions">
       <div style={{ position: "relative" }}>
         <button className="top-action-btn" onClick={toggleOpen} title="Обновления и уведомления">
           🔔
@@ -2412,7 +2655,8 @@ function TopBar() {
       >
         💜
       </ContactButton>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -2775,6 +3019,20 @@ function RoomDetail({ code, onBack }) {
   const [copied, setCopied] = useState(false);
   const [channel, setChannel] = useState("ai"); // "ai" | "team"
   const endRef = useRef(null);
+  const typingPingRef = useRef(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+
+  function handleInputChange(e) {
+    setInput(e.target.value);
+    const now = Date.now();
+    if (e.target.value.trim() && now - typingPingRef.current > 2000) {
+      typingPingRef.current = now;
+      api.pingRoomTyping(code).catch(() => {});
+    }
+  }
 
   const load = useCallback(() => {
     api
@@ -2793,8 +3051,8 @@ function RoomDetail({ code, onBack }) {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [room, channel]);
 
-  async function send() {
-    const text = input.trim();
+  async function send(overrideText) {
+    const text = (overrideText ?? input).trim();
     if (!text || sending || room?.status !== "open") return;
     setSending(true);
     setInput("");
@@ -2805,6 +3063,40 @@ function RoomDetail({ code, onBack }) {
       setError(e.message);
     } finally {
       setSending(false);
+    }
+  }
+
+  async function toggleVoiceInput() {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setTranscribing(true);
+        try {
+          const { text } = await api.transcribeVoice(blob);
+          if (text && text.trim()) await send(text.trim());
+        } catch (e) {
+          setError("Не удалось распознать голос: " + e.message);
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch (e) {
+      alert("Не удалось получить доступ к микрофону: " + e.message);
     }
   }
 
@@ -2867,7 +3159,7 @@ function RoomDetail({ code, onBack }) {
 
       <div className="chip-row">
         {room.participants.map((p) => (
-          <span key={p.id} className="chip" style={{ cursor: "default" }}>
+          <span key={p.id} className="chip" style={{ cursor: "pointer" }} onClick={() => openProfile(p.id)}>
             {p.avatar ? (
               <img
                 src={p.avatar}
@@ -2934,14 +3226,37 @@ function RoomDetail({ code, onBack }) {
 
       {room.status === "open" && (
         <>
+          {room.typing && room.typing.length > 0 && (
+            <p className="empty-hint typing-indicator">
+              {room.typing.join(", ")} {room.typing.length === 1 ? "печатает" : "печатают"}…
+            </p>
+          )}
           <div className="composer" style={{ marginTop: 12 }}>
             <input
-              placeholder={channel === "ai" ? "Напиши идею для нейросети…" : "Напиши напарнику…"}
+              placeholder={
+                isRecording
+                  ? "🔴 Идёт запись…"
+                  : transcribing
+                  ? "Распознаю…"
+                  : channel === "ai"
+                  ? "Напиши идею для нейросети…"
+                  : "Напиши напарнику…"
+              }
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => e.key === "Enter" && send()}
+              disabled={isRecording || transcribing}
             />
-            <button className="btn-primary" onClick={send} disabled={sending}>
+            <button
+              className={isRecording ? "btn-secondary" : "btn-ghost"}
+              onClick={toggleVoiceInput}
+              disabled={transcribing}
+              title="Голосовое сообщение"
+              style={isRecording ? { color: "#f87171" } : undefined}
+            >
+              {isRecording ? "⏹" : "🎤"}
+            </button>
+            <button className="btn-primary" onClick={() => send()} disabled={sending || isRecording || transcribing}>
               Отправить
             </button>
           </div>
@@ -3147,6 +3462,87 @@ function AdminUserManage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ==================== Публичный профиль пользователя ====================
+
+function PublicProfileModal({ userId, onClose }) {
+  const [profile, setProfile] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setProfile(null);
+    setError("");
+    api
+      .getPublicProfile(userId)
+      .then(setProfile)
+      .catch((e) => setError(e.message));
+  }, [userId]);
+
+  return (
+    <div className="bot-login-overlay" onClick={onClose}>
+      <div className="bot-login-modal" style={{ maxWidth: 420, textAlign: "left" }} onClick={(e) => e.stopPropagation()}>
+        <button className="btn-ghost small" onClick={onClose} style={{ float: "right" }}>
+          ✕
+        </button>
+        {error && <p className="form-error">{error}</p>}
+        {!profile && !error && <p className="empty-hint">Загружаю…</p>}
+        {profile && (
+          <>
+            <div className="inline-actions" style={{ marginBottom: 10 }}>
+              {profile.avatar ? (
+                <img src={profile.avatar} alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover" }} />
+              ) : (
+                <span className="user-avatar" style={{ width: 56, height: 56, fontSize: 22 }}>
+                  {profile.name[0]?.toUpperCase()}
+                </span>
+              )}
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 17 }}>
+                  {profile.is_me ? "Ты" : profile.name} <CustomBadge badge={profile.badge} />
+                </p>
+                <p className="empty-hint" style={{ margin: 0 }}>
+                  Ур. {profile.level} · {profile.level_title}
+                  {profile.current_streak > 0 && ` · 🔥 ${profile.current_streak}`}
+                </p>
+              </div>
+            </div>
+
+            {profile.achievements.length > 0 && (
+              <>
+                <p className="step-question">Достижения ({profile.achievements.length})</p>
+                <div className="achievements-grid" style={{ marginBottom: 16 }}>
+                  {profile.achievements.map((a) => (
+                    <div key={a.key} className="achievement-card earned" title={a.desc}>
+                      <span className="achievement-icon">{a.label.split(" ")[0]}</span>
+                      <span className="achievement-name">{a.label.split(" ").slice(1).join(" ")}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {profile.gallery_posts.length > 0 && (
+              <>
+                <p className="step-question">Промпты в галерее ({profile.gallery_posts.length})</p>
+                <div className="fav-list">
+                  {profile.gallery_posts.map((p) => (
+                    <div key={p.id} className="fav-item">
+                      <p style={{ margin: 0 }}>{p.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {profile.achievements.length === 0 && profile.gallery_posts.length === 0 && (
+              <p className="empty-hint">Пока не набрал(а) достижений и не публиковал(а) в галерею.</p>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
