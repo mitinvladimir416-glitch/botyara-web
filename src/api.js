@@ -152,6 +152,9 @@ export const api = {
   adminUsers: () => request("/api/admin/users", { auth: true }),
   adminLeaderboard: () => request("/api/admin/leaderboard", { auth: true }),
   adminActivity: () => request("/api/admin/activity", { auth: true }),
+  adminSearchUsers: (q) => request(`/api/admin/users/search?q=${encodeURIComponent(q || "")}`, { auth: true }),
+  adminUpdateUser: (userId, patch) =>
+    request(`/api/admin/users/${userId}`, { method: "PATCH", auth: true, body: patch }),
 
   // ---- Совместные комнаты ----
   createRoom: (category) => request("/api/rooms", { method: "POST", auth: true, body: { category } }),

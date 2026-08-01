@@ -1400,6 +1400,16 @@ textarea::placeholder {
   border-radius: 999px;
   vertical-align: middle;
 }
+.custom-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
 .streak-badge {
   font-size: 11px;
   font-weight: 700;

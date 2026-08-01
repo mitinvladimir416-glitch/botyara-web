@@ -115,9 +115,9 @@ export default function App() {
         {activeTab === "prompts" && <PromptsView />}
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
-        {activeTab === "gallery" && <GalleryView isAdmin={user.is_admin} />}
+        {activeTab === "gallery" && <GalleryView isAdmin={user.is_moderator} />}
         {activeTab === "rooms" && <RoomsView />}
-        {activeTab === "admin" && user.is_admin && <AdminView />}
+        {activeTab === "admin" && user.is_moderator && <AdminView isAdmin={user.is_admin} />}
         {activeTab === "account" && (
           <AccountView
             user={user}
@@ -128,7 +128,7 @@ export default function App() {
           />
         )}
       </main>
-      <ChatWidget isAdmin={user.is_admin} isMobile={viewMode === "mobile"} />
+      <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} />
     </div>
   );
 }
@@ -415,7 +415,7 @@ function AuthScreen({ onAuthed }) {
 
 function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode }) {
   const displayName = user.display_name || user.telegram_first_name || user.email || "Пользователь";
-  const navItems = user.is_admin
+  const navItems = user.is_moderator
     ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
     : NAV_ITEMS;
   return (
@@ -466,7 +466,7 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
             <span className="user-avatar">{displayName[0]?.toUpperCase()}</span>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <span className="user-name">{displayName}</span>
+            <span className="user-name">{displayName}</span> <CustomBadge badge={user.badge} />
             {typeof user.level === "number" && (
               <div className="level-block">
                 <div className="level-row">
@@ -495,6 +495,15 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
 function LevelBadge({ level }) {
   if (!level) return null;
   return <span className="level-badge-mini">Ур.{level}</span>;
+}
+
+function CustomBadge({ badge }) {
+  if (!badge || !badge.text) return null;
+  return (
+    <span className="custom-badge" style={{ borderColor: badge.color, color: badge.color }}>
+      {badge.text}
+    </span>
+  );
 }
 
 function ScreenHeader({ title, subtitle }) {
@@ -1820,6 +1829,7 @@ function GalleryView({ isAdmin }) {
                 {post.is_mine ? "Ты" : post.author}
               </span>
               <LevelBadge level={post.author_level} />
+              <CustomBadge badge={post.author_badge} />
               <span
                 className={post.liked_by_me ? "like-btn liked" : "like-btn"}
                 onClick={(e) => toggleLike(post.id, e)}
@@ -1927,6 +1937,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
                 {post.is_mine ? "Ты" : post.author}
               </p>
               <LevelBadge level={post.author_level} />
+              <CustomBadge badge={post.author_badge} />
             </div>
             <p style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
             <div className="inline-actions" style={{ marginTop: 10 }}>
@@ -1962,7 +1973,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
                 ) : null}
                 <div style={{ flex: 1 }}>
                   <p className="result-label" style={{ marginBottom: 4 }}>
-                    {c.author} <LevelBadge level={c.author_level} />
+                    {c.author} <LevelBadge level={c.author_level} /> <CustomBadge badge={c.author_badge} />
                   </p>
                   <p>{c.content}</p>
                 </div>
@@ -2208,7 +2219,7 @@ function ChatWidget({ isAdmin, isMobile }) {
                 )}
                 <div>
                   <p className="chat-widget-author">
-                    {m.author} <LevelBadge level={m.author_level} />
+                    {m.author} <LevelBadge level={m.author_level} /> <CustomBadge badge={m.author_badge} />
                   </p>
                   <p className="chat-widget-bubble-text">{m.content}</p>
                   {(m.is_mine || isAdmin) && (
@@ -2407,7 +2418,7 @@ function TopBar() {
 
 // ==================== Админ-панель ====================
 
-function AdminView() {
+function AdminView({ isAdmin }) {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState(null);
   const [leaderboard, setLeaderboard] = useState(null);
@@ -2519,7 +2530,14 @@ function AdminView() {
         <button className={tab === "leaderboard" ? "chip active" : "chip"} onClick={() => setTab("leaderboard")}>
           🏆 Топ по опыту
         </button>
+        {isAdmin && (
+          <button className={tab === "manage" ? "chip active" : "chip"} onClick={() => setTab("manage")}>
+            🛡 Управление
+          </button>
+        )}
       </div>
+
+      {tab === "manage" && isAdmin && <AdminUserManage />}
 
       {tab === "overview" && (
         <div className="fav-list" style={{ marginTop: 12 }}>
@@ -2857,7 +2875,7 @@ function RoomDetail({ code, onBack }) {
                 style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover", marginRight: 4, verticalAlign: "middle" }}
               />
             ) : null}
-            {p.is_me ? "Ты" : p.name} <LevelBadge level={p.level} />
+            {p.is_me ? "Ты" : p.name} <LevelBadge level={p.level} /> <CustomBadge badge={p.badge} />
           </span>
         ))}
         {room.status === "open" && (
@@ -2931,6 +2949,203 @@ function RoomDetail({ code, onBack }) {
             {finishing ? "Собираю промпт…" : "✅ Готово — собрать финальный промпт"}
           </button>
         </>
+      )}
+    </div>
+  );
+}
+
+// ==================== Управление пользователями (для полных админов) ====================
+
+const BADGE_COLOR_PRESETS = ["#a78bfa", "#22d3ee", "#fb7185", "#facc15", "#4ade80", "#f472b6"];
+
+function AdminUserManage() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({ display_name: "", badge_text: "", badge_color: BADGE_COLOR_PRESETS[0], is_banned: false, role: "user" });
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  async function search(q) {
+    setError("");
+    try {
+      const data = await api.adminSearchUsers(q);
+      setResults(data);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  useEffect(() => {
+    search("");
+  }, []);
+
+  function selectUser(u) {
+    setSelected(u);
+    setForm({
+      display_name: u.name || "",
+      badge_text: u.badge_text || "",
+      badge_color: u.badge_color || BADGE_COLOR_PRESETS[0],
+      is_banned: u.is_banned,
+      role: u.role,
+    });
+    setSaveMsg("");
+  }
+
+  async function save() {
+    if (!selected) return;
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      const patch = {
+        display_name: form.display_name,
+        badge_text: form.badge_text,
+        badge_color: form.badge_color,
+        is_banned: form.is_banned,
+      };
+      if (selected.can_manage_roles) patch.role = form.role;
+      const updated = await api.adminUpdateUser(selected.id, patch);
+      setSelected(updated);
+      setSaveMsg("✅ Сохранено!");
+      search(query);
+    } catch (e) {
+      setSaveMsg("Ошибка: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="composer" style={{ marginBottom: 12 }}>
+        <input
+          placeholder="Поиск по имени / email / Telegram…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && search(query)}
+        />
+        <button className="btn-primary" onClick={() => search(query)}>
+          Найти
+        </button>
+      </div>
+      {error && <p className="form-error">{error}</p>}
+
+      <div className="fav-list">
+        {results?.map((u) => (
+          <button
+            key={u.id}
+            className="fav-item"
+            style={{ textAlign: "left", cursor: "pointer" }}
+            onClick={() => selectUser(u)}
+          >
+            {u.avatar ? (
+              <img src={u.avatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+            ) : (
+              <span className="user-avatar">{u.name[0]?.toUpperCase()}</span>
+            )}
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: 700 }}>
+                {u.name} <LevelBadge level={u.level} /> <CustomBadge badge={{ text: u.badge_text, color: u.badge_color }} />
+                {u.is_banned && <span className="form-error" style={{ marginLeft: 6 }}>🚫 забанен</span>}
+              </p>
+              <p className="empty-hint" style={{ margin: 0, fontSize: 12 }}>
+                {u.role !== "user" ? `роль: ${u.role} · ` : ""}
+                {u.email || ""} {u.telegram_username ? "@" + u.telegram_username : ""}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {selected && (
+        <div className="result-card" style={{ marginTop: 16 }}>
+          <p className="result-label">Редактирование: {selected.name}</p>
+
+          <div className="field-row">
+            <label className="empty-hint" style={{ display: "block", marginBottom: 4 }}>Имя</label>
+            <input
+              value={form.display_name}
+              onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
+            />
+          </div>
+
+          <div className="field-row">
+            <label className="empty-hint" style={{ display: "block", marginBottom: 4 }}>
+              Украшение (титул рядом с именем)
+            </label>
+            <input
+              placeholder="Например: 👑 Основатель"
+              value={form.badge_text}
+              onChange={(e) => setForm((f) => ({ ...f, badge_text: e.target.value }))}
+              maxLength={30}
+            />
+          </div>
+
+          <div className="field-row">
+            <label className="empty-hint" style={{ display: "block", marginBottom: 4 }}>Цвет украшения</label>
+            <div className="chip-row" style={{ marginBottom: 0 }}>
+              {BADGE_COLOR_PRESETS.map((c) => (
+                <span
+                  key={c}
+                  onClick={() => setForm((f) => ({ ...f, badge_color: c }))}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: "50%",
+                    background: c,
+                    cursor: "pointer",
+                    display: "inline-block",
+                    boxShadow: form.badge_color === c ? "0 0 0 2px #fff" : "none",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {form.badge_text && (
+            <p className="empty-hint">
+              Превью: {selected.name} <CustomBadge badge={{ text: form.badge_text, color: form.badge_color }} />
+            </p>
+          )}
+
+          {selected.can_manage_roles && (
+            <div className="field-row">
+              <label className="empty-hint" style={{ display: "block", marginBottom: 4 }}>Роль</label>
+              <div className="chip-row" style={{ marginBottom: 0 }}>
+                {["user", "moderator", "admin"].map((r) => (
+                  <button
+                    key={r}
+                    className={form.role === r ? "chip active" : "chip"}
+                    onClick={() => setForm((f) => ({ ...f, role: r }))}
+                  >
+                    {r === "user" ? "Обычный" : r === "moderator" ? "🛡 Модератор" : "👑 Админ"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="inline-actions" style={{ marginTop: 10 }}>
+            <button
+              className={form.is_banned ? "chip active" : "chip"}
+              onClick={() => setForm((f) => ({ ...f, is_banned: !f.is_banned }))}
+              disabled={selected.is_super_admin}
+            >
+              {form.is_banned ? "🚫 Забанен (нажми чтобы разбанить)" : "Забанить"}
+            </button>
+          </div>
+
+          <div className="inline-actions" style={{ marginTop: 14 }}>
+            <button className="btn-primary" onClick={save} disabled={saving}>
+              {saving ? "Сохраняю…" : "Сохранить изменения"}
+            </button>
+            <button className="btn-ghost" onClick={() => setSelected(null)}>
+              Закрыть
+            </button>
+            {saveMsg && <span className="saved-msg">{saveMsg}</span>}
+          </div>
+        </div>
       )}
     </div>
   );
