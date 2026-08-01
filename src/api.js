@@ -116,6 +116,10 @@ export const api = {
 
   // ---- Оповещения об обновлениях ----
   listAnnouncements: () => request("/api/announcements", { auth: true }),
+  postAnnouncement: (content, aiPolish) =>
+    request("/api/admin/announcements", { method: "POST", auth: true, body: { content, ai_polish: aiPolish } }),
+  postAnnouncement: (content, aiPolish) =>
+    request("/api/admin/announcements", { method: "POST", auth: true, body: { content, ai_polish: aiPolish } }),
 
   // ---- Галерея промптов ----
   publishToGallery: (favoriteId) =>

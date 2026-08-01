@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { id: "favorites", label: "Избранное", icon: "⭐" },
   { id: "gallery", label: "Галерея", icon: "🖼️" },
   { id: "rooms", label: "Комнаты", icon: "🤝" },
+  { id: "whatsnew", label: "Что нового", icon: "📰" },
   { id: "account", label: "Аккаунт", icon: "👤" },
 ];
 
@@ -127,6 +128,7 @@ export default function App() {
         {activeTab === "gallery" && <GalleryView isAdmin={user.is_moderator} />}
         {activeTab === "rooms" && <RoomsView />}
         {activeTab === "admin" && user.is_moderator && <AdminView isAdmin={user.is_admin} />}
+        {activeTab === "whatsnew" && <WhatsNewView isAdmin={user.is_admin} />}
         {activeTab === "account" && (
           <AccountView
             user={user}
@@ -3542,6 +3544,93 @@ function PublicProfileModal({ userId, onClose }) {
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ==================== Что нового (лента обновлений, видна всем) ====================
+
+function WhatsNewView({ isAdmin }) {
+  const [items, setItems] = useState(null);
+  const [error, setError] = useState("");
+  const [draft, setDraft] = useState("");
+  const [aiPolish, setAiPolish] = useState(true);
+  const [publishing, setPublishing] = useState(false);
+  const [publishMsg, setPublishMsg] = useState("");
+
+  const load = useCallback(() => {
+    api
+      .listAnnouncements()
+      .then(setItems)
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(load, [load]);
+
+  async function publish() {
+    if (!draft.trim() || publishing) return;
+    setPublishing(true);
+    setPublishMsg("");
+    try {
+      await api.postAnnouncement(draft.trim(), aiPolish);
+      setDraft("");
+      setPublishMsg("✅ Опубликовано!");
+      load();
+      setTimeout(() => setPublishMsg(""), 2500);
+    } catch (e) {
+      setPublishMsg("Ошибка: " + e.message);
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  return (
+    <div className="view">
+      <ScreenHeader title="📰 Что нового" subtitle="Обновления сайта и бота" />
+      {error && <p className="form-error">{error}</p>}
+
+      {isAdmin && (
+        <div className="result-card" style={{ marginBottom: 20 }}>
+          <p className="result-label">Опубликовать новость</p>
+          <textarea
+            className="textarea"
+            rows={3}
+            placeholder="Опиши, что обновилось — можно сухим списком, нейросеть причешет стиль…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          <div className="inline-actions" style={{ marginTop: 8 }}>
+            <button
+              className={aiPolish ? "chip active" : "chip"}
+              onClick={() => setAiPolish((v) => !v)}
+              type="button"
+            >
+              ✨ Причесать нейросетью
+            </button>
+            <button className="btn-primary" onClick={publish} disabled={!draft.trim() || publishing}>
+              {publishing ? "Публикую…" : "Опубликовать"}
+            </button>
+            {publishMsg && <span className="saved-msg">{publishMsg}</span>}
+          </div>
+          <p className="empty-hint" style={{ marginTop: 8, marginBottom: 0 }}>
+            Публикация с сайта видна только здесь (лента + колокольчик 🔔) — в Telegram не рассылается.
+            Для рассылки в личку всем пользователям бота используй команду /announce прямо в боте.
+          </p>
+        </div>
+      )}
+
+      {items === null && <p className="empty-hint">Загружаю…</p>}
+      {items && items.length === 0 && <p className="empty-hint">Пока новостей нет.</p>}
+      <div className="fav-list">
+        {items?.map((a) => (
+          <div key={a.id} className="fav-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
+            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{a.content}</p>
+            <p className="empty-hint" style={{ margin: "6px 0 0", fontSize: 12 }}>
+              {new Date(a.created_at).toLocaleString("ru-RU")}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
