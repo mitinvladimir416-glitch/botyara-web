@@ -2339,6 +2339,7 @@ function ChatWidget({ isAdmin, isMobile, currentUserId }) {
 
   const wsRef = useRef(null);
   const wsReconnectTimerRef = useRef(null);
+  const wsPingTimerRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -2348,6 +2349,14 @@ function ChatWidget({ isAdmin, isMobile, currentUserId }) {
       if (!token) return;
       const ws = new WebSocket(`${WS_BASE}/ws/public-chat?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
+
+      ws.onopen = () => {
+        // Держим соединение живым — некоторые прокси закрывают "тихие" сокеты через 30-60с простоя
+        clearInterval(wsPingTimerRef.current);
+        wsPingTimerRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) ws.send("ping");
+        }, 20000);
+      };
 
       ws.onmessage = (event) => {
         let data;
@@ -2359,18 +2368,35 @@ function ChatWidget({ isAdmin, isMobile, currentUserId }) {
         if (data.type === "new_message") {
           const msg = data.message;
           const isMine = msg.author_id === currentUserId;
-          if (isMine) return; // своё сообщение уже показано оптимистично и подтвердится через load()
+          if (isMine) return; // своё сообщение уже подставлено напрямую из ответа на отправку
           setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, { ...msg, is_mine: false, my_reaction: null }]));
           if (!openRef.current) {
             setUnseen((u) => u + 1);
             showToast(msg.author, msg.content);
           }
+        } else if (data.type === "message_updated") {
+          const msg = data.message;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === msg.id ? { ...m, ...msg, is_mine: m.is_mine, my_reaction: m.my_reaction } : m))
+          );
+          setPinned((p) => {
+            if (msg.is_pinned) return { ...msg, is_mine: msg.author_id === currentUserId };
+            if (p && p.id === msg.id) return null;
+            return p;
+          });
+        } else if (data.type === "message_deleted") {
+          setMessages((prev) => prev.filter((m) => m.id !== data.id));
+          setPinned((p) => (p && p.id === data.id ? null : p));
+        } else if (data.type === "cleared") {
+          setMessages([]);
+          setPinned(null);
         } else if (data.type === "refresh") {
           load();
         }
       };
 
       ws.onclose = () => {
+        clearInterval(wsPingTimerRef.current);
         if (!cancelled) wsReconnectTimerRef.current = setTimeout(connect, 3000);
       };
       ws.onerror = () => ws.close();
@@ -2380,6 +2406,7 @@ function ChatWidget({ isAdmin, isMobile, currentUserId }) {
     return () => {
       cancelled = true;
       clearTimeout(wsReconnectTimerRef.current);
+      clearInterval(wsPingTimerRef.current);
       wsRef.current?.close();
     };
   }, [load, currentUserId]);
@@ -2421,8 +2448,10 @@ function ChatWidget({ isAdmin, isMobile, currentUserId }) {
 
     try {
       const res = await api.sendPublicChat(text, replyId);
-      if (res.status === "approved") {
-        load(); // подтягиваем настоящую версию с сервера (с реальным id и т.д.)
+      if (res.status === "approved" && res.message) {
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? res.message : m)));
+      } else if (res.status === "approved") {
+        load(); // на случай, если сервер вдруг не прислал сообщение целиком — подстрахуемся
       } else {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setSendError(`🚫 ${res.reject_reason || "Отклонено модерацией"}`);
