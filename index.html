@@ -10,7 +10,8 @@
       // (который привязан только к одному домену) работает откуда угодно.
       (function () {
         var canonicalHost = "24promtbot.ru";
-        if (window.location.hostname !== canonicalHost) {
+        var localHosts = ["localhost", "127.0.0.1"];
+        if (window.location.hostname !== canonicalHost && !localHosts.includes(window.location.hostname)) {
           window.location.replace(
             "https://" + canonicalHost + window.location.pathname + window.location.search + window.location.hash
           );
