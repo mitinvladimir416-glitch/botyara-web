@@ -3,6 +3,7 @@
 // достаточно будет поменять только эту строку.
 const API_BASE = "https://mitinvladimir416-glitch-botyara-api-e748.twc1.net";
 export const WS_BASE = API_BASE.replace(/^http/, "ws");
+export const SHARE_BASE = API_BASE;
 
 const TOKEN_KEY = "botyara_token";
 
@@ -156,6 +157,7 @@ export const api = {
   // ---- Геймификация ----
   reactToGalleryPost: (postId, emoji) =>
     request(`/api/gallery/${postId}/react`, { method: "POST", auth: true, body: { emoji } }),
+  getPublicGalleryPost: (postId) => request(`/api/public/gallery/${postId}`),
   listAchievements: () => request("/api/achievements", { auth: true }),
   listNotifications: () => request("/api/notifications", { auth: true }),
   clearNotifications: () => request("/api/notifications", { method: "DELETE", auth: true }),

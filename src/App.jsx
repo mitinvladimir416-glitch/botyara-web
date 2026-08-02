@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { api, getToken, setToken, WS_BASE } from "./api.js";
+import { api, getToken, setToken, WS_BASE, SHARE_BASE } from "./api.js";
 
 const BOT_USERNAME = "halpervovan_bot"; // имя бота без @, для кнопки "Войти через Telegram"
 
@@ -94,6 +94,11 @@ export default function App() {
     setToken(null);
     setUser(null);
   };
+
+  const publicGalleryMatch = window.location.pathname.match(/^\/gallery\/(\d+)/);
+  if (publicGalleryMatch) {
+    return <PublicGalleryPostPage postId={publicGalleryMatch[1]} loggedIn={!!getToken()} />;
+  }
 
   if (checkingAuth) {
     return (
@@ -2049,6 +2054,13 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
   const [comment, setComment] = useState("");
   const [sending, setSending] = useState(false);
   const [commentMsg, setCommentMsg] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
+
+  function copyShareLink() {
+    navigator.clipboard?.writeText(`${SHARE_BASE}/share/gallery/${postId}`);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 1500);
+  }
 
   const load = useCallback(() => {
     api
@@ -2141,6 +2153,9 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
             <p style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
             <div className="inline-actions" style={{ marginTop: 10 }}>
               <ReactionPicker reactions={post.reactions} myReaction={post.my_reaction} onReact={react} />
+              <button className="btn-secondary" onClick={copyShareLink} style={{ padding: "6px 14px", fontSize: 13 }}>
+                {shareCopied ? "✅ Ссылка скопирована" : "🔗 Поделиться"}
+              </button>
             </div>
           </div>
 
@@ -3961,6 +3976,113 @@ function WhatsNewView({ isAdmin }) {
             </p>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ==================== Публичная страница промпта (без входа, для расшаривания) ====================
+
+function PublicGalleryPostPage({ postId, loggedIn }) {
+  const [post, setPost] = useState(null);
+  const [error, setError] = useState("");
+  const [saveMsg, setSaveMsg] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api
+      .getPublicGalleryPost(postId)
+      .then(setPost)
+      .catch((e) => setError(e.message));
+  }, [postId]);
+
+  function goToSite() {
+    window.history.replaceState({}, "", "/");
+    window.location.reload();
+  }
+
+  async function saveToFavorites() {
+    if (!post) return;
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      await api.addFavorite(post.content, post.category);
+      setSaveMsg("✅ Сохранено в избранное!");
+    } catch (e) {
+      setSaveMsg("Ошибка: " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const totalReactions = post ? Object.values(post.reactions || {}).reduce((a, b) => a + b, 0) : 0;
+
+  return (
+    <div className="auth-screen">
+      <ParticlesBG />
+      <div className="auth-card" style={{ position: "relative", zIndex: 2, maxWidth: 480 }}>
+        <div className="brand">
+          <span className="brand-mark">Б</span>
+          <div>
+            <h1 className="brand-title">ботяра</h1>
+            <p className="brand-sub">жми, общайся, отрывайся</p>
+          </div>
+        </div>
+
+        {error && <p className="form-error">{error}</p>}
+        {!post && !error && <p className="empty-hint">Загружаю промпт…</p>}
+
+        {post && (
+          <>
+            <div className="result-card">
+              <div className="inline-actions" style={{ marginBottom: 8 }}>
+                {post.author_avatar ? (
+                  <img
+                    src={post.author_avatar}
+                    alt=""
+                    style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+                  />
+                ) : (
+                  <span className="user-avatar">{post.author[0]?.toUpperCase()}</span>
+                )}
+                <span style={{ fontWeight: 700 }}>{post.author}</span>
+                <LevelBadge level={post.author_level} />
+              </div>
+              <p style={{ whiteSpace: "pre-wrap" }}>{post.content}</p>
+              {totalReactions > 0 && (
+                <p className="empty-hint" style={{ marginTop: 8 }}>
+                  {Object.entries(post.reactions)
+                    .map(([e, c]) => `${e} ${c}`)
+                    .join("   ")}
+                </p>
+              )}
+            </div>
+
+            {loggedIn ? (
+              <button
+                className="btn-primary"
+                onClick={saveToFavorites}
+                disabled={saving}
+                style={{ width: "100%", marginTop: 12 }}
+              >
+                {saving ? "Сохраняю…" : "⭐ Сохранить в избранное"}
+              </button>
+            ) : (
+              <button className="btn-primary" onClick={goToSite} style={{ width: "100%", marginTop: 12 }}>
+                🚀 Зарегистрироваться и создать свой
+              </button>
+            )}
+            {saveMsg && (
+              <p className="saved-msg" style={{ marginTop: 8 }}>
+                {saveMsg}
+              </p>
+            )}
+
+            <button className="btn-ghost" onClick={goToSite} style={{ marginTop: 12 }}>
+              На главную →
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
