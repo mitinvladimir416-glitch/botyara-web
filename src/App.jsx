@@ -1,4 +1,23 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  Activity,
+  Ban,
+  BarChart3,
+  CheckCircle2,
+  Download,
+  GalleryVerticalEnd,
+  LayoutDashboard,
+  MessageCircle,
+  RefreshCw,
+  Save,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Trophy,
+  UserCog,
+  Users,
+  X,
+} from "lucide-react";
 import { api, getToken, setToken, WS_BASE, SHARE_BASE } from "./api.js";
 
 const BOT_USERNAME = "halpervovan_bot"; // имя бота без @, для кнопки "Войти через Telegram"
@@ -144,7 +163,9 @@ export default function App() {
           />
         )}
       </main>
-      <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
+      {activeTab !== "admin" && (
+        <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
+      )}
       {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
     </div>
   );
@@ -3005,7 +3026,694 @@ function TopBar() {
 
 // ==================== Админ-панель ====================
 
+const ADMIN_NUMBER_FORMAT = new Intl.NumberFormat("ru-RU");
+const ADMIN_DATE_FORMAT = new Intl.DateTimeFormat("ru-RU", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatAdminNumber(value) {
+  return ADMIN_NUMBER_FORMAT.format(Number(value) || 0);
+}
+
+function formatAdminDate(value) {
+  if (!value) return "Нет данных";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Нет данных" : ADMIN_DATE_FORMAT.format(date);
+}
+
+function formatAdminRelativeDate(value) {
+  if (!value) return "Не заходил";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Нет данных";
+  const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return "Только что";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} мин назад`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} ч назад`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} дн назад`;
+  return formatAdminDate(value);
+}
+
+function adminRoleLabel(user) {
+  const role = user.role || (user.is_admin ? "admin" : "user");
+  if (role === "admin") return "Админ";
+  if (role === "moderator") return "Модератор";
+  return "Пользователь";
+}
+
+function AdminAvatar({ user, size = "md" }) {
+  const initial = (user.name || user.email || "П").trim()[0]?.toUpperCase();
+  if (user.avatar) {
+    return <img className={`admin-avatar ${size}`} src={user.avatar} alt="" />;
+  }
+  return <span className={`admin-avatar admin-avatar-fallback ${size}`}>{initial}</span>;
+}
+
+function AdminMetric({ icon: Icon, label, value, note, tone = "default" }) {
+  return (
+    <div className={`admin-metric ${tone}`}>
+      <div className="admin-metric-icon"><Icon size={18} strokeWidth={2} /></div>
+      <div className="admin-metric-copy">
+        <span className="admin-metric-label">{label}</span>
+        <strong className="admin-metric-value">{formatAdminNumber(value)}</strong>
+        {note && <span className="admin-metric-note">{note}</span>}
+      </div>
+    </div>
+  );
+}
+
+function AdminEmpty({ title, text }) {
+  return (
+    <div className="admin-empty">
+      <Search size={22} aria-hidden="true" />
+      <strong>{title}</strong>
+      {text && <span>{text}</span>}
+    </div>
+  );
+}
+
 function AdminView({ isAdmin }) {
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [activity, setActivity] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [tab, setTab] = useState("overview");
+  const [userQuery, setUserQuery] = useState("");
+  const [userFilter, setUserFilter] = useState("all");
+  const [userSort, setUserSort] = useState("activity");
+  const [activityKind, setActivityKind] = useState("all");
+  const [activityStatus, setActivityStatus] = useState("all");
+
+  const loadAll = useCallback(async () => {
+    setRefreshing(true);
+    setError("");
+    try {
+      const [statsData, usersData, leaderboardData, activityData] = await Promise.all([
+        api.adminStats(),
+        api.adminUsers(),
+        api.adminLeaderboard(),
+        api.adminActivity(),
+      ]);
+      setStats(statsData);
+      setUsers(Array.isArray(usersData) ? usersData : []);
+      setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
+      setActivity(Array.isArray(activityData) ? activityData : []);
+      setLastUpdated(new Date());
+    } catch (e) {
+      setError(e.message || "Не удалось загрузить данные админки");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+    const interval = setInterval(() => {
+      if (!document.hidden) loadAll();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadAll]);
+
+  const filteredUsers = useMemo(() => {
+    const normalizedQuery = userQuery.trim().toLowerCase();
+    const result = users.filter((user) => {
+      const matchesQuery = !normalizedQuery || [user.name, user.email, user.telegram_username]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(normalizedQuery));
+      const role = user.role || (user.is_admin ? "admin" : "user");
+      const matchesFilter =
+        userFilter === "all" ||
+        (userFilter === "online" && user.is_online) ||
+        (userFilter === "staff" && role !== "user") ||
+        (userFilter === "banned" && user.is_banned) ||
+        (userFilter === "offline" && !user.is_online);
+      return matchesQuery && matchesFilter;
+    });
+
+    return result.sort((a, b) => {
+      if (userSort === "xp") return (b.xp || 0) - (a.xp || 0);
+      if (userSort === "newest") return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      if (userSort === "name") return (a.name || "").localeCompare(b.name || "", "ru");
+      return new Date(b.last_seen_at || 0) - new Date(a.last_seen_at || 0);
+    });
+  }, [users, userQuery, userFilter, userSort]);
+
+  const filteredActivity = useMemo(
+    () => activity.filter((event) => (
+      (activityKind === "all" || event.kind === activityKind) &&
+      (activityStatus === "all" || event.status === activityStatus)
+    )),
+    [activity, activityKind, activityStatus]
+  );
+
+  const maxSignup = Math.max(1, ...(stats?.signups_by_day || []).map((day) => day.count));
+  const maxLeaderboardXp = Math.max(1, ...leaderboard.map((user) => user.xp || 0));
+  const totalUsers = stats?.total_users || 0;
+  const weeklyActivityRate = totalUsers ? Math.round(((stats?.active_week || 0) / totalUsers) * 100) : 0;
+  const dailyActivityRate = totalUsers ? Math.round(((stats?.active_today || 0) / totalUsers) * 100) : 0;
+  const onlineRate = totalUsers ? Math.round(((stats?.online_now || 0) / totalUsers) * 100) : 0;
+  const approvedPostsRate = stats?.total_gallery_posts
+    ? Math.round(((stats.approved_posts || 0) / stats.total_gallery_posts) * 100)
+    : 0;
+
+  const tabs = [
+    { id: "overview", label: "Обзор", icon: LayoutDashboard },
+    { id: "users", label: "Пользователи", icon: Users, count: users.length },
+    { id: "activity", label: "Модерация", icon: ShieldCheck, count: stats?.rejected_today || 0 },
+    { id: "leaderboard", label: "Рейтинг", icon: Trophy },
+    ...(isAdmin ? [{ id: "manage", label: "Управление", icon: UserCog }] : []),
+  ];
+
+  function exportUsersCsv() {
+    const header = ["ID", "Имя", "Email", "Telegram", "Роль", "Онлайн", "XP", "Уровень", "Регистрация", "Последняя активность"];
+    const escapeCsv = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = filteredUsers.map((user) => [
+      user.id,
+      user.name,
+      user.email,
+      user.telegram_username ? `@${user.telegram_username}` : "",
+      adminRoleLabel(user),
+      user.is_online ? "Да" : "Нет",
+      user.xp || 0,
+      user.level || 0,
+      formatAdminDate(user.created_at),
+      formatAdminDate(user.last_seen_at),
+    ]);
+    const csv = [header, ...rows].map((row) => row.map(escapeCsv).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `botyara-users-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (loading) {
+    return (
+      <div className="view bt-wide admin-workspace">
+        <div className="admin-header-skeleton" />
+        <div className="admin-metric-grid">
+          {Array.from({ length: 6 }).map((_, index) => <div className="admin-metric admin-skeleton" key={index} />)}
+        </div>
+        <div className="admin-panel admin-skeleton admin-skeleton-panel" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="view bt-wide admin-workspace">
+      <header className="admin-header">
+        <div>
+          <span className="admin-eyebrow">Центр управления</span>
+          <h2>Админка</h2>
+          <p>{isAdmin ? "Полный доступ" : "Режим модератора"} · данные обновляются автоматически</p>
+        </div>
+        <div className="admin-header-actions">
+          <span className="admin-sync-status">
+            <span className={`admin-sync-dot ${error ? "error" : ""}`} />
+            {lastUpdated ? `Обновлено ${lastUpdated.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}` : "Нет данных"}
+          </span>
+          <button
+            type="button"
+            className="admin-action-button"
+            onClick={loadAll}
+            disabled={refreshing}
+            title="Обновить данные"
+          >
+            <RefreshCw size={17} className={refreshing ? "spin" : ""} />
+            <span>Обновить</span>
+          </button>
+        </div>
+      </header>
+
+      {error && (
+        <div className="admin-alert" role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={loadAll}>Повторить</button>
+        </div>
+      )}
+
+      <section className="admin-metric-grid" aria-label="Ключевые показатели">
+        <AdminMetric icon={Activity} label="Онлайн сейчас" value={stats?.online_now} note={`${onlineRate}% аудитории`} tone="success" />
+        <AdminMetric icon={Users} label="Пользователей" value={stats?.total_users} note={`+${formatAdminNumber(stats?.new_week)} за 7 дней`} />
+        <AdminMetric icon={Sparkles} label="Новых сегодня" value={stats?.new_today} note={`За неделю: ${formatAdminNumber(stats?.new_week)}`} tone="cyan" />
+        <AdminMetric icon={CheckCircle2} label="Активны сегодня" value={stats?.active_today} note={`${dailyActivityRate}% аудитории`} tone="gold" />
+        <AdminMetric icon={MessageCircle} label="Сообщений" value={stats?.total_messages} note={`Общий чат: ${formatAdminNumber(stats?.total_public_messages)}`} tone="violet" />
+        <AdminMetric icon={Ban} label="Отклонено сегодня" value={stats?.rejected_today} note={`Всего блокировок: ${formatAdminNumber(stats?.banned_users)}`} tone="danger" />
+      </section>
+
+      <nav className="admin-tabs" aria-label="Разделы админки">
+        {tabs.map(({ id, label, icon: Icon, count }) => (
+          <button
+            key={id}
+            type="button"
+            className={tab === id ? "admin-tab active" : "admin-tab"}
+            onClick={() => setTab(id)}
+            aria-current={tab === id ? "page" : undefined}
+          >
+            <Icon size={16} />
+            <span>{label}</span>
+            {count > 0 && <span className="admin-tab-count">{formatAdminNumber(count)}</span>}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "overview" && (
+        <div className="admin-section-stack">
+          <div className="admin-overview-grid">
+            <section className="admin-panel admin-chart-panel">
+              <div className="admin-panel-heading">
+                <div>
+                  <span className="admin-panel-kicker">Динамика</span>
+                  <h3>Регистрации за 14 дней</h3>
+                </div>
+                <BarChart3 size={20} />
+              </div>
+              <div className="admin-chart" aria-label="График регистраций за 14 дней">
+                {(stats?.signups_by_day || []).map((day) => (
+                  <div key={day.date} className="admin-chart-column" title={`${day.date}: ${day.count}`}>
+                    <span className="admin-chart-value">{day.count}</span>
+                    <div className="admin-chart-track">
+                      <div className="admin-chart-bar" style={{ height: `${Math.max(5, (day.count / maxSignup) * 100)}%` }} />
+                    </div>
+                    <span className="admin-chart-label">{day.date.slice(8)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="admin-panel admin-health-panel">
+              <div className="admin-panel-heading">
+                <div>
+                  <span className="admin-panel-kicker">Аудитория</span>
+                  <h3>Состояние проекта</h3>
+                </div>
+                <Activity size={20} />
+              </div>
+              {[
+                ["Активны за неделю", weeklyActivityRate, `${formatAdminNumber(stats?.active_week)} из ${formatAdminNumber(totalUsers)}`],
+                ["Активны сегодня", dailyActivityRate, formatAdminNumber(stats?.active_today)],
+                ["Онлайн сейчас", onlineRate, formatAdminNumber(stats?.online_now)],
+                ["Посты прошли модерацию", approvedPostsRate, `${formatAdminNumber(stats?.approved_posts)} из ${formatAdminNumber(stats?.total_gallery_posts)}`],
+              ].map(([label, value, detail]) => (
+                <div className="admin-health-row" key={label}>
+                  <div><span>{label}</span><strong>{detail}</strong></div>
+                  <div className="admin-progress"><span style={{ width: `${Math.min(100, value)}%` }} /></div>
+                  <b>{value}%</b>
+                </div>
+              ))}
+            </section>
+          </div>
+
+          <section className="admin-content-strip" aria-label="Контент и вовлечённость">
+            {[
+              ["Галерея", stats?.total_gallery_posts, GalleryVerticalEnd],
+              ["Комментарии", stats?.total_comments, MessageCircle],
+              ["Лайки", stats?.total_likes, Sparkles],
+              ["В избранном", stats?.total_favorites, CheckCircle2],
+              ["Комнаты", stats?.total_rooms, Users],
+              ["Команда", stats?.staff_users, ShieldCheck],
+            ].map(([label, value, Icon]) => (
+              <div className="admin-content-stat" key={label}>
+                <Icon size={17} />
+                <span>{label}</span>
+                <strong>{formatAdminNumber(value)}</strong>
+              </div>
+            ))}
+          </section>
+        </div>
+      )}
+
+      {tab === "users" && (
+        <section className="admin-panel admin-users-panel">
+          <div className="admin-panel-heading admin-panel-heading-wrap">
+            <div>
+              <span className="admin-panel-kicker">База пользователей</span>
+              <h3>{formatAdminNumber(filteredUsers.length)} из {formatAdminNumber(users.length)}</h3>
+            </div>
+            <div className="admin-toolbar">
+              <label className="admin-search-field">
+                <Search size={16} />
+                <input
+                  value={userQuery}
+                  onChange={(event) => setUserQuery(event.target.value)}
+                  placeholder="Имя, email или Telegram"
+                />
+                {userQuery && (
+                  <button type="button" onClick={() => setUserQuery("")} title="Очистить поиск"><X size={15} /></button>
+                )}
+              </label>
+              <select value={userFilter} onChange={(event) => setUserFilter(event.target.value)} aria-label="Фильтр пользователей">
+                <option value="all">Все статусы</option>
+                <option value="online">Онлайн</option>
+                <option value="offline">Не в сети</option>
+                <option value="staff">Команда</option>
+                <option value="banned">Заблокированы</option>
+              </select>
+              <select value={userSort} onChange={(event) => setUserSort(event.target.value)} aria-label="Сортировка пользователей">
+                <option value="activity">По активности</option>
+                <option value="newest">Сначала новые</option>
+                <option value="xp">По опыту</option>
+                <option value="name">По имени</option>
+              </select>
+              <button type="button" className="admin-icon-button" onClick={exportUsersCsv} title="Скачать CSV">
+                <Download size={17} />
+              </button>
+            </div>
+          </div>
+
+          {filteredUsers.length === 0 ? (
+            <AdminEmpty title="Пользователи не найдены" text="Измените поиск или фильтр" />
+          ) : (
+            <div className="admin-user-table">
+              <div className="admin-user-table-head">
+                <span>Пользователь</span><span>Контакты</span><span>Статус</span><span>Активность</span><span>Прогресс</span>
+              </div>
+              {filteredUsers.map((user) => (
+                <div className="admin-user-row" key={user.id}>
+                  <div className="admin-user-identity">
+                    <AdminAvatar user={user} />
+                    <div>
+                      <button type="button" className="admin-name-button" onClick={() => openProfile(user.id)}>{user.name}</button>
+                      <span>ID {user.id} · {adminRoleLabel(user)}</span>
+                    </div>
+                  </div>
+                  <div className="admin-user-cell" data-label="Контакты">
+                    <strong>{user.email || "Без email"}</strong>
+                    <span>{user.telegram_username ? `@${user.telegram_username}` : "Telegram не указан"}</span>
+                  </div>
+                  <div className="admin-user-cell" data-label="Статус">
+                    <span className={`admin-status ${user.is_banned ? "danger" : user.is_online ? "online" : "offline"}`}>
+                      <i />{user.is_banned ? "Заблокирован" : user.is_online ? "Онлайн" : "Не в сети"}
+                    </span>
+                  </div>
+                  <div className="admin-user-cell" data-label="Активность">
+                    <strong>{formatAdminRelativeDate(user.last_seen_at)}</strong>
+                    <span>Регистрация: {formatAdminDate(user.created_at)}</span>
+                  </div>
+                  <div className="admin-user-cell" data-label="Прогресс">
+                    <strong>{formatAdminNumber(user.xp)} XP · ур. {user.level}</strong>
+                    <span>Серия: {user.current_streak || 0} дн</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "activity" && (
+        <section className="admin-panel">
+          <div className="admin-panel-heading admin-panel-heading-wrap">
+            <div>
+              <span className="admin-panel-kicker">Последние события</span>
+              <h3>Лента модерации</h3>
+            </div>
+            <div className="admin-toolbar">
+              <select value={activityKind} onChange={(event) => setActivityKind(event.target.value)} aria-label="Тип события">
+                <option value="all">Весь контент</option>
+                <option value="gallery_post">Посты</option>
+                <option value="gallery_comment">Комментарии</option>
+                <option value="public_chat">Общий чат</option>
+              </select>
+              <div className="admin-mini-segmented" aria-label="Статус модерации">
+                {[['all', 'Все'], ['approved', 'Одобрено'], ['rejected', 'Отклонено']].map(([value, label]) => (
+                  <button type="button" key={value} className={activityStatus === value ? "active" : ""} onClick={() => setActivityStatus(value)}>{label}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {filteredActivity.length === 0 ? (
+            <AdminEmpty title="Событий нет" text="Для выбранного фильтра ничего не найдено" />
+          ) : (
+            <div className="admin-activity-list">
+              {filteredActivity.map((event, index) => {
+                const meta = event.kind === "gallery_post"
+                  ? { label: "Пост", icon: GalleryVerticalEnd }
+                  : event.kind === "gallery_comment"
+                    ? { label: "Комментарий", icon: MessageCircle }
+                    : { label: "Общий чат", icon: MessageCircle };
+                const EventIcon = meta.icon;
+                return (
+                  <article className="admin-activity-item" key={`${event.kind}-${event.id || index}-${event.created_at || index}`}>
+                    <span className={`admin-activity-icon ${event.status}`}><EventIcon size={17} /></span>
+                    <div className="admin-activity-body">
+                      <div className="admin-activity-meta">
+                        <span>{meta.label}</span>
+                        <span>·</span>
+                        {event.user_id ? (
+                          <button type="button" onClick={() => openProfile(event.user_id)}>{event.author}</button>
+                        ) : <strong>{event.author}</strong>}
+                        <span>·</span>
+                        <time dateTime={event.created_at}>{formatAdminRelativeDate(event.created_at)}</time>
+                      </div>
+                      <p>{event.content}</p>
+                      {event.reject_reason && <span className="admin-reject-reason">Причина: {event.reject_reason}</span>}
+                    </div>
+                    <span className={`admin-status ${event.status === "approved" ? "online" : "danger"}`}>
+                      {event.status === "approved" ? "Одобрено" : "Отклонено"}
+                    </span>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "leaderboard" && (
+        <section className="admin-panel admin-leaderboard-panel">
+          <div className="admin-panel-heading">
+            <div>
+              <span className="admin-panel-kicker">Вовлечённость</span>
+              <h3>Топ пользователей по опыту</h3>
+            </div>
+            <Trophy size={20} />
+          </div>
+          <div className="admin-leaderboard-list">
+            {leaderboard.map((user, index) => (
+              <div className={`admin-leader-row rank-${index + 1}`} key={user.id}>
+                <span className="admin-rank">{index + 1}</span>
+                <AdminAvatar user={user} />
+                <div className="admin-leader-main">
+                  <button type="button" onClick={() => openProfile(user.id)}>{user.name}</button>
+                  <div className="admin-leader-progress"><span style={{ width: `${((user.xp || 0) / maxLeaderboardXp) * 100}%` }} /></div>
+                </div>
+                <span className="admin-level-pill">Ур. {user.level}</span>
+                <strong>{formatAdminNumber(user.xp)} XP</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === "manage" && isAdmin && <AdminUserEditor onChanged={loadAll} />}
+    </div>
+  );
+}
+
+function AdminUserEditor({ onChanged }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [error, setError] = useState("");
+  const [searching, setSearching] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({ display_name: "", badge_text: "", badge_color: BADGE_COLOR_PRESETS[0], is_banned: false, role: "user" });
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  const searchUsers = useCallback(async (value) => {
+    setSearching(true);
+    setError("");
+    try {
+      const data = await api.adminSearchUsers(value);
+      setResults(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchUsers(query), 300);
+    return () => clearTimeout(timer);
+  }, [query, searchUsers]);
+
+  function selectUser(user) {
+    setSelected(user);
+    setForm({
+      display_name: user.name || "",
+      badge_text: user.badge_text || "",
+      badge_color: user.badge_color || BADGE_COLOR_PRESETS[0],
+      is_banned: Boolean(user.is_banned),
+      role: user.role || "user",
+    });
+    setSaveMsg("");
+  }
+
+  async function save() {
+    if (!selected || saving) return;
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      const patch = {
+        display_name: form.display_name,
+        badge_text: form.badge_text,
+        badge_color: form.badge_color,
+        is_banned: form.is_banned,
+      };
+      if (selected.can_manage_roles) patch.role = form.role;
+      const updated = await api.adminUpdateUser(selected.id, patch);
+      setSelected(updated);
+      setSaveMsg("Изменения сохранены");
+      await searchUsers(query);
+      onChanged?.();
+    } catch (e) {
+      setSaveMsg(`Ошибка: ${e.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="admin-manage-layout">
+      <div className="admin-panel admin-manage-list">
+        <div className="admin-panel-heading">
+          <div>
+            <span className="admin-panel-kicker">Аккаунты</span>
+            <h3>Управление пользователями</h3>
+          </div>
+        </div>
+        <label className="admin-search-field admin-search-field-wide">
+          <Search size={16} />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Имя, email или Telegram" />
+          {query && <button type="button" onClick={() => setQuery("")} title="Очистить поиск"><X size={15} /></button>}
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <div className="admin-manage-results">
+          {searching && <span className="admin-inline-loading"><RefreshCw size={15} className="spin" /> Поиск</span>}
+          {!searching && results.length === 0 && <AdminEmpty title="Никого не найдено" />}
+          {results.map((user) => (
+            <button
+              type="button"
+              key={user.id}
+              className={selected?.id === user.id ? "admin-manage-user active" : "admin-manage-user"}
+              onClick={() => selectUser(user)}
+            >
+              <AdminAvatar user={user} />
+              <span>
+                <strong>{user.name}</strong>
+                <small>{user.email || (user.telegram_username ? `@${user.telegram_username}` : `ID ${user.id}`)}</small>
+              </span>
+              <i className={`admin-role-dot ${user.role}`} title={adminRoleLabel(user)} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="admin-panel admin-editor-panel">
+        {!selected ? (
+          <div className="admin-editor-placeholder">
+            <UserCog size={28} />
+            <strong>Выберите пользователя</strong>
+            <span>Профиль откроется здесь</span>
+          </div>
+        ) : (
+          <>
+            <div className="admin-editor-header">
+              <div className="admin-user-identity">
+                <AdminAvatar user={selected} size="lg" />
+                <div>
+                  <strong>{selected.name}</strong>
+                  <span>ID {selected.id} · {adminRoleLabel(selected)}</span>
+                </div>
+              </div>
+              <button type="button" className="admin-icon-button" onClick={() => setSelected(null)} title="Закрыть"><X size={17} /></button>
+            </div>
+
+            <div className="admin-form-grid">
+              <label className="admin-form-field">
+                <span>Отображаемое имя</span>
+                <input value={form.display_name} onChange={(event) => setForm((current) => ({ ...current, display_name: event.target.value }))} maxLength={50} />
+              </label>
+              <label className="admin-form-field">
+                <span>Украшение профиля</span>
+                <input value={form.badge_text} onChange={(event) => setForm((current) => ({ ...current, badge_text: event.target.value }))} maxLength={30} placeholder="Например: Основатель" />
+              </label>
+            </div>
+
+            <div className="admin-form-section">
+              <span className="admin-form-label">Цвет украшения</span>
+              <div className="admin-color-swatches">
+                {BADGE_COLOR_PRESETS.map((color) => (
+                  <button
+                    type="button"
+                    key={color}
+                    className={form.badge_color === color ? "active" : ""}
+                    style={{ background: color }}
+                    onClick={() => setForm((current) => ({ ...current, badge_color: color }))}
+                    aria-label={`Выбрать цвет ${color}`}
+                  />
+                ))}
+              </div>
+              {form.badge_text && (
+                <div className="admin-badge-preview">
+                  <span>Предпросмотр</span>
+                  <strong>{form.display_name || selected.name}</strong>
+                  <CustomBadge badge={{ text: form.badge_text, color: form.badge_color }} />
+                </div>
+              )}
+            </div>
+
+            {selected.can_manage_roles && (
+              <div className="admin-form-section">
+                <span className="admin-form-label">Роль</span>
+                <div className="admin-role-control">
+                  {[["user", "Пользователь"], ["moderator", "Модератор"], ["admin", "Админ"]].map(([role, label]) => (
+                    <button type="button" key={role} className={form.role === role ? "active" : ""} onClick={() => setForm((current) => ({ ...current, role }))}>{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="admin-ban-row">
+              <div>
+                <strong>Доступ к сайту</strong>
+                <span>{form.is_banned ? "Пользователь заблокирован" : "Пользователь может пользоваться сервисом"}</span>
+              </div>
+              <button
+                type="button"
+                className={form.is_banned ? "admin-ban-toggle active" : "admin-ban-toggle"}
+                onClick={() => setForm((current) => ({ ...current, is_banned: !current.is_banned }))}
+                disabled={selected.is_super_admin}
+                aria-pressed={form.is_banned}
+              ><span /></button>
+            </div>
+
+            <div className="admin-editor-footer">
+              <button type="button" className="admin-save-button" onClick={save} disabled={saving}>
+                {saving ? <RefreshCw size={17} className="spin" /> : <Save size={17} />}
+                {saving ? "Сохраняю" : "Сохранить"}
+              </button>
+              {saveMsg && <span className={saveMsg.startsWith("Ошибка") ? "admin-save-message error" : "admin-save-message"}>{saveMsg}</span>}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function LegacyAdminView({ isAdmin }) {
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState(null);
   const [leaderboard, setLeaderboard] = useState(null);
