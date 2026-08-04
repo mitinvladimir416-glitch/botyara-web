@@ -79,16 +79,20 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      setCheckingAuth(false);
-      return;
+    async function restoreLogin() {
+      try {
+        if (!getToken()) {
+          const session = await api.restoreSession();
+          setToken(session.access_token);
+        }
+        setUser(await api.me());
+      } catch {
+        setToken(null);
+      } finally {
+        setCheckingAuth(false);
+      }
     }
-    api
-      .me()
-      .then(setUser)
-      .catch(() => setToken(null))
-      .finally(() => setCheckingAuth(false));
+    restoreLogin();
   }, []);
 
   useEffect(() => {
@@ -104,9 +108,15 @@ export default function App() {
     setUser(data.user);
   };
 
-  const handleLogout = () => {
-    setToken(null);
-    setUser(null);
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      // Локальный выход должен сработать даже при временной недоступности API.
+    } finally {
+      setToken(null);
+      setUser(null);
+    }
   };
 
   const publicGalleryMatch = window.location.pathname.match(/^\/gallery\/(\d+)/);
