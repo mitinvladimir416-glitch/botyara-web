@@ -24,6 +24,7 @@ import { LEGAL_DOCS, LEGAL_ORDER } from "./legalContent.js";
 const BOT_USERNAME = "halpervovan_bot"; // имя бота без @, для кнопки "Войти через Telegram"
 
 const NAV_ITEMS = [
+  { id: "home", label: "Главная", icon: "⌂" },
   { id: "chat", label: "Общение", icon: "💬" },
   { id: "translate", label: "Переводчик", icon: "🌐" },
   { id: "prompts", label: "Промпты", icon: "🎨" },
@@ -53,7 +54,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState(() =>
-    new URLSearchParams(window.location.search).get("room") ? "rooms" : "chat"
+    new URLSearchParams(window.location.search).get("room") ? "rooms" : "home"
   );
   const [viewMode, setViewMode] = useState(() => (window.innerWidth <= 820 ? "mobile" : "desktop"));
   const [profileUserId, setProfileUserId] = useState(null);
@@ -140,7 +141,8 @@ export default function App() {
         user={user}
         onLogout={handleLogout}
       />
-      <main className="content">
+      <main className={`content content-${activeTab}`}>
+        {activeTab === "home" && <HomeView user={user} onNavigate={setActiveTab} />}
         {activeTab === "chat" && <ChatView />}
         {activeTab === "translate" && <TranslateView />}
         {activeTab === "prompts" && <PromptsView />}
@@ -474,6 +476,7 @@ function Sidebar({ active, onChange, user, onLogout }) {
     ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
     : NAV_ITEMS;
   const navGroups = [
+    { label: "Главное", ids: ["home"] },
     { label: "Создавать", ids: ["chat", "translate", "prompts", "cover"] },
     { label: "Сообщество", ids: ["favorites", "gallery", "rooms", "whatsnew"] },
     { label: "Сервис", ids: ["shop", "legal", "account", "admin"] },
@@ -497,6 +500,7 @@ function Sidebar({ active, onChange, user, onLogout }) {
               {items.map((item) => (
                 <button
                   key={item.id}
+                  data-nav={item.id}
                   className={active === item.id ? "nav-item active" : "nav-item"}
                   onClick={() => onChange(item.id)}
                 >
@@ -566,6 +570,40 @@ function Sidebar({ active, onChange, user, onLogout }) {
         </button>
       </div>
     </aside>
+  );
+}
+
+function HomeView({ user, onNavigate }) {
+  const displayName = user.display_name || user.telegram_first_name || user.email || "друг";
+  const actions = [
+    { id: "chat", icon: "✦", title: "Начать общение", text: "Диалог с AI в выбранной роли" },
+    { id: "prompts", icon: "◈", title: "Создать промпт", text: "Для музыки, изображения или видео" },
+    { id: "cover", icon: "▣", title: "Сделать обложку", text: "Идея и визуальная концепция трека" },
+    { id: "shop", icon: "♢", title: "Магазин рамок", text: "35 новых коллекционных оформлений" },
+    { id: "gallery", icon: "◎", title: "Открыть галерею", text: "Работы и идеи сообщества" },
+    { id: "account", icon: "◉", title: "Мой профиль", text: "Уровень, достижения и оформление" },
+  ];
+  return (
+    <div className="home-view">
+      <section className="home-hero">
+        <span className="home-eyebrow">BOTYARA · AI CREATIVE CLUB</span>
+        <h1>Добро пожаловать, {displayName}</h1>
+        <p>Ваше пространство для общения, творчества и коллекционных украшений профиля.</p>
+        <div className="home-hero-actions">
+          <button className="btn-primary" onClick={() => onNavigate("chat")}>Начать диалог</button>
+          <button className="btn-secondary" onClick={() => onNavigate("shop")}>Открыть магазин</button>
+        </div>
+      </section>
+      <section className="home-action-grid" aria-label="Быстрый доступ">
+        {actions.map((action) => (
+          <button className="home-action-card" key={action.id} onClick={() => onNavigate(action.id)}>
+            <span className="home-action-icon">{action.icon}</span>
+            <span><strong>{action.title}</strong><small>{action.text}</small></span>
+            <span className="home-action-arrow">→</span>
+          </button>
+        ))}
+      </section>
+    </div>
   );
 }
 
