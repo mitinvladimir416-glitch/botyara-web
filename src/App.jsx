@@ -32,6 +32,7 @@ const NAV_ITEMS = [
   { id: "gallery", label: "Галерея", icon: "🖼️" },
   { id: "rooms", label: "Комнаты", icon: "🤝" },
   { id: "whatsnew", label: "Что нового", icon: "📰" },
+  { id: "shop", label: "Магазин", icon: "💎" },
   { id: "legal", label: "Документы", icon: "⚖️" },
   { id: "account", label: "Аккаунт", icon: "👤" },
 ];
@@ -54,11 +55,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(() =>
     new URLSearchParams(window.location.search).get("room") ? "rooms" : "chat"
   );
-  const [viewMode, setViewMode] = useState(() => {
-    const saved = localStorage.getItem("botyara_view_mode");
-    if (saved === "mobile" || saved === "desktop") return saved;
-    return window.innerWidth <= 780 ? "mobile" : "desktop";
-  });
+  const [viewMode, setViewMode] = useState(() => (window.innerWidth <= 820 ? "mobile" : "desktop"));
   const [profileUserId, setProfileUserId] = useState(null);
   const [showPromo, setShowPromo] = useState(false);
 
@@ -94,28 +91,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("botyara_view_mode", viewMode);
+    localStorage.removeItem("botyara_view_mode");
     document.documentElement.classList.remove("force-mobile", "force-desktop");
-    document.documentElement.classList.add(viewMode === "mobile" ? "force-mobile" : "force-desktop");
-
-    const meta = document.querySelector('meta[name="viewport"]');
-    if (meta) {
-      if (viewMode === "desktop") {
-        const desktopWidth = 1024;
-        const scale = Math.min(1, window.innerWidth / desktopWidth);
-        meta.setAttribute(
-          "content",
-          `width=${desktopWidth}, initial-scale=${scale}, minimum-scale=0.25, maximum-scale=2`
-        );
-      } else {
-        meta.setAttribute("content", "width=device-width, initial-scale=1");
-      }
-    }
-  }, [viewMode]);
-
-  function toggleViewMode() {
-    setViewMode((m) => (m === "mobile" ? "desktop" : "mobile"));
-  }
+    const syncViewMode = () => setViewMode(window.innerWidth <= 820 ? "mobile" : "desktop");
+    window.addEventListener("resize", syncViewMode);
+    return () => window.removeEventListener("resize", syncViewMode);
+  }, []);
 
   const handleAuthed = (data) => {
     setToken(data.access_token);
@@ -158,8 +139,6 @@ export default function App() {
         onChange={setActiveTab}
         user={user}
         onLogout={handleLogout}
-        viewMode={viewMode}
-        onToggleViewMode={toggleViewMode}
       />
       <main className="content">
         {activeTab === "chat" && <ChatView />}
@@ -171,6 +150,7 @@ export default function App() {
         {activeTab === "rooms" && <RoomsView />}
         {activeTab === "admin" && user.is_moderator && <AdminView isAdmin={user.is_admin} />}
         {activeTab === "whatsnew" && <WhatsNewView isAdmin={user.is_admin} />}
+        {activeTab === "shop" && <ShopView user={user} />}
         {activeTab === "legal" && <LegalHubView />}
         {activeTab === "account" && (
           <AccountView
@@ -178,12 +158,12 @@ export default function App() {
             onUserUpdate={setUser}
             onLogout={handleLogout}
             viewMode={viewMode}
-            onToggleViewMode={toggleViewMode}
+            onToggleViewMode={() => {}}
           />
         )}
       </main>
       {activeTab !== "admin" && (
-        <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
+        <ChatWidget isAdmin={user.is_moderator} isMobile={false} currentUserId={user.id} />
       )}
       {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
       {showPromo && <PromoModal onClose={() => setShowPromo(false)} />}
@@ -487,7 +467,7 @@ function AuthScreen({ onAuthed }) {
 
 // ==================== Каркас приложения ====================
 
-function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode }) {
+function Sidebar({ active, onChange, user, onLogout }) {
   const displayName = user.display_name || user.telegram_first_name || user.email || "Пользователь";
   const navItems = user.is_moderator
     ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
@@ -511,9 +491,6 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
         ))}
       </nav>
       <div className="sidebar-footer">
-        <button className="device-toggle-btn" onClick={onToggleViewMode} title="Переключить вид сайта">
-          {viewMode === "mobile" ? "🖥 Версия для ПК" : "📱 Мобильная версия"}
-        </button>
         <ContactButton
           className="btn-ghost"
           intro="Как удобнее написать — выбирай:"
@@ -1815,7 +1792,6 @@ function AccountView({ user, onUserUpdate, onLogout, viewMode, onToggleViewMode 
       )}
 
       <p className="step-question">🎨 Магазин оформления</p>
-      <ShopView user={user} />
 
       <p className="step-question">Профиль</p>
       <form onSubmit={handleSaveProfile} className="auth-form" style={{ marginBottom: 20 }}>
