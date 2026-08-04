@@ -4665,7 +4665,7 @@ function ShopView({ user }) {
   useEffect(load, [load]);
 
   function statusFor(itemId) {
-    const relevant = purchases.filter((p) => p.item_id === itemId);
+    const relevant = purchases.filter((p) => p.item_key === itemId);
     if (relevant.some((p) => p.status === "fulfilled")) return "fulfilled";
     if (relevant.some((p) => p.status === "pending")) return "pending";
     return null;
@@ -4701,7 +4701,7 @@ function ShopView({ user }) {
     <div>
       {error && <p className="form-error">{error}</p>}
 
-      {Object.entries(catalog.packages).map(([key, pkg]) => {
+      {Object.entries(catalog.packages || {}).map(([key, pkg]) => {
         const status = statusFor(`package:${key}`);
         return (
           <div key={key} className="shop-package-banner">
@@ -4715,7 +4715,7 @@ function ShopView({ user }) {
             </p>
             <button
               className="btn-primary"
-              disabled={!!status || buyingId === `package:${key}`}
+              disabled={!catalog.purchases_enabled || !!status || buyingId === `package:${key}`}
               onClick={() => buy(`package:${key}`)}
             >
               {status === "fulfilled"
@@ -4724,31 +4724,34 @@ function ShopView({ user }) {
                 ? "⏳ Ждём оплату"
                 : buyingId === `package:${key}`
                 ? "…"
-                : "🚀 Купить пакет"}
+                : catalog.purchases_enabled
+                ? "🚀 Купить пакет"
+                : "Скоро с ЮKassa"}
             </button>
           </div>
         );
       })}
 
       {categories.map((cat) => {
-        const items = Object.entries(catalog.items).filter(([, item]) => item.category === cat.key);
+        const items = catalog.items.filter((item) => item.category === cat.key);
         if (items.length === 0) return null;
         return (
           <div key={cat.key} className="shop-section">
             <p className="shop-section-title">{cat.title}</p>
             <div className="shop-grid">
-              {items.map(([id, item]) => {
+              {items.map((item) => {
+                const id = item.key;
                 const status = statusFor(id);
                 return (
                   <div key={id} className="shop-item">
-                    {cat.key === "name_color" && <span className="shop-item-swatch" style={{ background: item.value }} />}
+                    {cat.key === "name_color" && <span className="shop-item-swatch" style={{ background: item.css_value }} />}
                     <span className="shop-item-name">{item.name}</span>
                     <span className="shop-item-price">{item.price}₽</span>
                     {status === "fulfilled" && <span className="shop-status-fulfilled">✅ Куплено</span>}
                     {status === "pending" && <span className="shop-status-pending">⏳ Ждём оплату</span>}
                     {!status && (
-                      <button className="btn-secondary shop-buy-btn" disabled={buyingId === id} onClick={() => buy(id)}>
-                        {buyingId === id ? "…" : "Купить"}
+                      <button className="btn-secondary shop-buy-btn" disabled={!catalog.purchases_enabled || buyingId === id} onClick={() => buy(id)}>
+                        {buyingId === id ? "…" : catalog.purchases_enabled ? "Купить" : "Скоро с ЮKassa"}
                       </button>
                     )}
                   </div>
@@ -4769,28 +4772,12 @@ function ShopView({ user }) {
 }
 
 function PromoModal({ onClose }) {
-  const [buying, setBuying] = useState(false);
-  const [done, setDone] = useState(false);
-
-  async function buy() {
-    setBuying(true);
-    try {
-      await api.shopPurchase("package:starter");
-      setDone(true);
-    } catch (e) {
-      alert("Не удалось оформить заявку: " + e.message);
-    } finally {
-      setBuying(false);
-    }
-  }
-
   return (
     <div className="bot-login-overlay" onClick={onClose}>
       <div className="bot-login-modal promo-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="promo-modal-emoji">🎉</div>
         <h3 style={{ margin: "0 0 8px" }}>Стартовый набор украшений</h3>
-        {!done ? (
-          <>
+        <>
             <p className="empty-hint" style={{ marginBottom: 14 }}>
               Огненная рамка + золотой ник + титул «Легенда» — одним пакетом со скидкой.
             </p>
@@ -4798,23 +4785,13 @@ function PromoModal({ onClose }) {
               <span className="shop-package-price">39₽</span>
               <span className="shop-package-original">67₽</span>
             </p>
-            <button className="btn-primary" onClick={buy} disabled={buying} style={{ width: "100%", marginBottom: 10 }}>
-              {buying ? "…" : "🚀 Хочу пакет"}
+            <button className="btn-primary" disabled style={{ width: "100%", marginBottom: 10 }}>
+              Скоро с ЮKassa
             </button>
             <button className="btn-ghost" onClick={onClose}>
               Не сейчас
             </button>
-          </>
-        ) : (
-          <>
-            <p className="saved-msg" style={{ marginBottom: 16 }}>
-              Заявка отправлена! Напиши мне (кнопка «Связь со мной» в меню) — оплатишь и сразу получишь набор.
-            </p>
-            <button className="btn-primary" onClick={onClose}>
-              Понятно
-            </button>
-          </>
-        )}
+        </>
       </div>
     </div>
   );
