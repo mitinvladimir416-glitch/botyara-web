@@ -3600,3 +3600,255 @@ body {
   .shop-item { min-height: 270px; }
   .shop-item-visual { min-height: 138px; }
 }
+
+/* ==================== Full visual rebuild ==================== */
+
+body {
+  background:
+    linear-gradient(105deg, rgba(3,5,12,.84), rgba(7,8,20,.55) 55%, rgba(4,6,13,.72)),
+    url("/premium-gallery-bg.png") center / cover fixed;
+}
+
+body::after {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.025), transparent 22%),
+    radial-gradient(circle at 18% 8%, rgba(168,126,255,.17), transparent 34%);
+}
+
+.particles-bg {
+  display: none;
+}
+
+.auth-screen {
+  background:
+    linear-gradient(100deg, rgba(3,5,12,.84), rgba(7,8,20,.38), rgba(3,5,12,.64)),
+    url("/premium-gallery-bg.png") center / cover fixed;
+}
+
+.sidebar {
+  background:
+    linear-gradient(160deg, rgba(21,19,40,.96), rgba(7,10,19,.94)),
+    radial-gradient(circle at 0 0, rgba(164,122,255,.18), transparent 36%);
+  border-color: rgba(211,188,255,.16);
+}
+
+.sidebar-brand-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-brand-copy small {
+  color: #9d8ec2;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .17em;
+}
+
+.sidebar-nav {
+  display: block;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.nav-group:last-child {
+  margin-bottom: 0;
+}
+
+.nav-group-label {
+  padding: 2px 12px 5px;
+  color: #7f7598;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.nav-item.active {
+  border-color: rgba(218,196,255,.34);
+  background:
+    linear-gradient(100deg, rgba(157,103,236,.34), rgba(72,190,212,.10));
+  box-shadow: inset 3px 0 #f1d493, 0 12px 30px rgba(79,44,149,.20);
+}
+
+.content {
+  padding-bottom: 92px;
+}
+
+.site-legal-bar {
+  position: fixed;
+  left: 288px;
+  right: 24px;
+  bottom: 14px;
+  z-index: 50;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 10px 8px 16px;
+  overflow-x: auto;
+  border: 1px solid rgba(211,188,255,.16);
+  border-radius: 17px;
+  background: rgba(7,9,18,.91);
+  box-shadow: 0 16px 46px rgba(0,0,0,.42), inset 0 1px rgba(255,255,255,.05);
+  backdrop-filter: blur(24px) saturate(135%);
+  color: #aeb7c8;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.site-legal-owner {
+  margin-right: auto;
+  color: #d7d0e3;
+}
+
+.site-legal-bar a,
+.site-legal-bar button {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: #cbb8ff;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.site-legal-bar button {
+  min-height: 32px;
+  padding: 6px 11px;
+  border: 1px solid rgba(211,188,255,.20);
+  border-radius: 10px;
+  background: rgba(151,105,232,.12);
+}
+
+.site-legal-bar a:hover,
+.site-legal-bar button:hover {
+  color: #fff;
+}
+
+.chat-widget {
+  bottom: 76px;
+}
+
+.chat-workspace {
+  height: calc(100dvh - 170px);
+}
+
+.shop-showcase-intro {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(105deg, rgba(13,13,30,.90), rgba(24,17,47,.58)),
+    url("/premium-gallery-bg.png") center 62% / cover;
+  border-color: rgba(238,209,146,.34);
+  box-shadow: 0 32px 85px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.09);
+}
+
+.shop-showcase-intro::after {
+  content: "✦";
+  position: absolute;
+  right: clamp(30px, 8vw, 100px);
+  top: 28px;
+  color: #f1d493;
+  font-size: clamp(50px, 8vw, 100px);
+  opacity: .72;
+  text-shadow: 0 0 40px rgba(186,139,255,.65);
+}
+
+.shop-showcase-intro > div {
+  position: relative;
+  z-index: 1;
+}
+
+.shop-section {
+  border-color: rgba(204,177,255,.14);
+  background: linear-gradient(145deg, rgba(16,15,34,.88), rgba(6,10,18,.83));
+}
+
+.shop-item {
+  border-color: rgba(213,188,255,.14) !important;
+  background:
+    linear-gradient(150deg, rgba(35,27,58,.92), rgba(8,13,23,.95)) !important;
+}
+
+.shop-item:hover {
+  border-color: rgba(241,212,147,.48) !important;
+  box-shadow: 0 24px 55px rgba(47,28,88,.36), inset 0 1px rgba(255,255,255,.08);
+}
+
+.shop-item-visual {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(190,142,255,.32), transparent 38%),
+    linear-gradient(145deg, rgba(255,255,255,.065), rgba(255,255,255,.012));
+  border-color: rgba(228,209,255,.12);
+}
+
+@media (max-width: 1080px) and (min-width: 821px) {
+  .site-legal-bar { left: 248px; }
+}
+
+@media (max-width: 820px) {
+  body,
+  .auth-screen {
+    background-position: 38% center;
+    background-attachment: scroll;
+  }
+
+  .nav-group {
+    display: contents;
+  }
+
+  .nav-group-label {
+    display: none;
+  }
+
+  .content {
+    padding-bottom: 146px;
+  }
+
+  .site-legal-bar {
+    left: 10px;
+    right: 10px;
+    bottom: 88px;
+    min-height: 42px;
+    padding: 6px 8px 6px 12px;
+    gap: 10px;
+    border-radius: 14px;
+    font-size: 9px;
+  }
+
+  .site-legal-owner {
+    max-width: 54vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .site-legal-bar a {
+    display: none;
+  }
+
+  .site-legal-bar button {
+    min-height: 30px;
+  }
+
+  .chat-widget {
+    bottom: 142px;
+  }
+
+  .chat-workspace {
+    height: calc(100dvh - 214px);
+  }
+
+  .shop-showcase-intro::after {
+    right: 18px;
+    top: 18px;
+    opacity: .34;
+  }
+}

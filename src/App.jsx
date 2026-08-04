@@ -162,6 +162,7 @@ export default function App() {
           />
         )}
       </main>
+      <SiteLegalBar onOpenLegal={() => setActiveTab("legal")} />
       {activeTab !== "admin" && (
         <ChatWidget isAdmin={user.is_moderator} isMobile={false} currentUserId={user.id} />
       )}
@@ -472,23 +473,40 @@ function Sidebar({ active, onChange, user, onLogout }) {
   const navItems = user.is_moderator
     ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
     : NAV_ITEMS;
+  const navGroups = [
+    { label: "Создавать", ids: ["chat", "translate", "prompts", "cover"] },
+    { label: "Сообщество", ids: ["favorites", "gallery", "rooms", "whatsnew"] },
+    { label: "Сервис", ids: ["shop", "legal", "account", "admin"] },
+  ];
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
         <span className="brand-mark small">Б</span>
-        <span className="sidebar-brand-text">ботяра</span>
+        <span className="sidebar-brand-copy">
+          <span className="sidebar-brand-text">ботяра</span>
+          <small>AI CREATIVE CLUB</small>
+        </span>
       </div>
       <nav className="sidebar-nav">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            className={active === item.id ? "nav-item active" : "nav-item"}
-            onClick={() => onChange(item.id)}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
+        {navGroups.map((group) => {
+          const items = group.ids.map((id) => navItems.find((item) => item.id === id)).filter(Boolean);
+          if (!items.length) return null;
+          return (
+            <div className="nav-group" key={group.label}>
+              <span className="nav-group-label">{group.label}</span>
+              {items.map((item) => (
+                <button
+                  key={item.id}
+                  className={active === item.id ? "nav-item active" : "nav-item"}
+                  onClick={() => onChange(item.id)}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })}
       </nav>
       <div className="sidebar-footer">
         <ContactButton
@@ -548,6 +566,17 @@ function Sidebar({ active, onChange, user, onLogout }) {
         </button>
       </div>
     </aside>
+  );
+}
+
+function SiteLegalBar({ onOpenLegal }) {
+  return (
+    <footer className="site-legal-bar">
+      <span className="site-legal-owner">© 2026 «24ПромтБот» · Бурлакова Елена Владимировна · ИНН 524505287983</span>
+      <button type="button" onClick={onOpenLegal}>Все документы</button>
+      <a href="/legal/privacy">Конфиденциальность</a>
+      <a href="/legal/terms">Соглашение</a>
+    </footer>
   );
 }
 
