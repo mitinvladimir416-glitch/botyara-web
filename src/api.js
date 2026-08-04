@@ -45,6 +45,7 @@ async function request(path, { method = "GET", body, auth = false, isForm = fals
   const response = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
+    credentials: "include",
     body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
   });
 
@@ -114,6 +115,8 @@ export const api = {
     request("/api/auth/telegram", { method: "POST", body: telegramData }),
   startBotLogin: () => request("/api/auth/telegram/start", { method: "POST" }),
   pollBotLogin: (token) => request(`/api/auth/telegram/poll?token=${encodeURIComponent(token)}`),
+  restoreSession: () => request("/api/auth/session", { method: "POST" }),
+  logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/me", { auth: true }),
   linkEmail: (email, password) =>
     request("/api/me/link-email", { method: "POST", auth: true, body: { email, password } }),
