@@ -32,6 +32,7 @@ const NAV_ITEMS = [
   { id: "gallery", label: "Галерея", icon: "🖼️" },
   { id: "rooms", label: "Комнаты", icon: "🤝" },
   { id: "whatsnew", label: "Что нового", icon: "📰" },
+  { id: "legal", label: "Документы", icon: "⚖️" },
   { id: "account", label: "Аккаунт", icon: "👤" },
 ];
 
@@ -170,6 +171,7 @@ export default function App() {
         {activeTab === "rooms" && <RoomsView />}
         {activeTab === "admin" && user.is_moderator && <AdminView isAdmin={user.is_admin} />}
         {activeTab === "whatsnew" && <WhatsNewView isAdmin={user.is_admin} />}
+        {activeTab === "legal" && <LegalHubView />}
         {activeTab === "account" && (
           <AccountView
             user={user}
@@ -362,8 +364,6 @@ function AuthScreen({ onAuthed }) {
 
       <ParticlesBG />
 
-      <img src="/bot-right.jpg" alt="" className="botyara-side-image right" />
-      <img src="/bot-left.jpg" alt="" className="botyara-side-image left" />
 
       <h1 className={showAuth ? "botyara-hero-title hide" : "botyara-hero-title"}>БОТЯРА</h1>
 
@@ -669,7 +669,12 @@ function ScreenHeader({ title, subtitle }) {
 }
 
 function Bubble({ role, children }) {
-  return <div className={role === "user" ? "bubble bubble-user" : "bubble bubble-bot"}>{children}</div>;
+  return (
+    <div className={role === "user" ? "bubble bubble-user" : "bubble bubble-bot"}>
+      <span className="bubble-author">{role === "user" ? "Вы" : "Ботяра AI"}</span>
+      <span className="bubble-content">{children}</span>
+    </div>
+  );
 }
 
 // ==================== Общение ====================
@@ -797,7 +802,7 @@ function ChatView() {
   const currentRole = roles?.[activeRole];
 
   return (
-    <div className="view bt-wide">
+    <div className="view bt-wide chat-workspace">
       <style>{`
         .bt-tabs-wrap {
           position: relative;
@@ -4698,13 +4703,22 @@ function ShopView({ user }) {
   ];
 
   return (
-    <div>
+    <div className="shop-showcase">
+      <div className="shop-showcase-intro">
+        <div>
+          <span className="shop-kicker">Коллекция оформления</span>
+          <h3>Создайте свой визуальный стиль</h3>
+          <p>Рамки, цвета имени и титулы уже можно примерить взглядом. Покупки откроются после подключения ЮKassa.</p>
+        </div>
+        <span className="shop-view-mode">Витрина</span>
+      </div>
       {error && <p className="form-error">{error}</p>}
 
       {Object.entries(catalog.packages || {}).map(([key, pkg]) => {
         const status = statusFor(`package:${key}`);
         return (
-          <div key={key} className="shop-package-banner">
+          <div key={key} className="shop-package-banner shop-package-premium">
+            <div className="shop-package-orbit" aria-hidden="true"><span>Б</span></div>
             <p className="shop-package-title">{pkg.name}</p>
             <p className="empty-hint" style={{ marginBottom: 10 }}>
               {pkg.description}
@@ -4743,8 +4757,12 @@ function ShopView({ user }) {
                 const id = item.key;
                 const status = statusFor(id);
                 return (
-                  <div key={id} className="shop-item">
-                    {cat.key === "name_color" && <span className="shop-item-swatch" style={{ background: item.css_value }} />}
+                  <div key={id} className={`shop-item shop-item-${cat.key}`}>
+                    <div className="shop-item-visual" aria-hidden="true">
+                      {cat.key === "frame" && <span className={`shop-avatar-preview avatar-frame avatar-frame-${item.css_value}`}>Б</span>}
+                      {cat.key === "name_color" && <span className="shop-name-preview" style={{ color: item.css_value }}>Ботяра</span>}
+                      {cat.key === "title" && <span className="shop-title-preview" style={{ color: item.badge_color, borderColor: item.badge_color }}>{item.badge_text}</span>}
+                    </div>
                     <span className="shop-item-name">{item.name}</span>
                     <span className="shop-item-price">{item.price}₽</span>
                     {status === "fulfilled" && <span className="shop-status-fulfilled">✅ Куплено</span>}
@@ -4940,6 +4958,30 @@ function renderLegalBody(text) {
   });
   flushList();
   return blocks;
+}
+
+function LegalHubView() {
+  return (
+    <div className="view legal-hub">
+      <ScreenHeader title="Юридическая информация" subtitle="Прозрачные правила, защита данных и документы сервиса в одном месте" />
+      <div className="legal-trust-card">
+        <span className="legal-trust-icon">⚖️</span>
+        <div>
+          <strong>Всё открыто и доступно</strong>
+          <p>Документы открываются без авторизации и всегда доступны по постоянным ссылкам.</p>
+        </div>
+      </div>
+      <div className="legal-doc-grid">
+        {LEGAL_ORDER.map((slug, index) => (
+          <a className="legal-doc-card" href={`/legal/${slug}`} key={slug}>
+            <span className="legal-doc-number">{String(index + 1).padStart(2, "0")}</span>
+            <span className="legal-doc-title">{LEGAL_DOCS[slug].title}</span>
+            <span className="legal-doc-arrow">→</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function LegalPage({ slug }) {
