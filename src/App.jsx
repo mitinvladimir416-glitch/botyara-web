@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { api, getToken, setToken, WS_BASE, SHARE_BASE } from "./api.js";
+import { LEGAL_DOCS, LEGAL_ORDER } from "./legalContent.js";
 
 const BOT_USERNAME = "halpervovan_bot"; // имя бота без @, для кнопки "Войти через Telegram"
 
@@ -58,6 +59,7 @@ export default function App() {
     return window.innerWidth <= 780 ? "mobile" : "desktop";
   });
   const [profileUserId, setProfileUserId] = useState(null);
+  const [showPromo, setShowPromo] = useState(false);
 
   useEffect(() => {
     function handler(e) {
@@ -66,6 +68,16 @@ export default function App() {
     window.addEventListener("botyara-open-profile", handler);
     return () => window.removeEventListener("botyara-open-profile", handler);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    if (sessionStorage.getItem("botyara_promo_shown")) return;
+    const timer = setTimeout(() => {
+      sessionStorage.setItem("botyara_promo_shown", "1");
+      setShowPromo(true);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [user]);
 
   useEffect(() => {
     const token = getToken();
@@ -119,6 +131,11 @@ export default function App() {
     return <PublicGalleryPostPage postId={publicGalleryMatch[1]} loggedIn={!!getToken()} />;
   }
 
+  const legalMatch = window.location.pathname.match(/^\/legal(?:\/([\w-]+))?/);
+  if (legalMatch) {
+    return <LegalPage slug={legalMatch[1] || null} />;
+  }
+
   if (checkingAuth) {
     return (
       <div className="splash">
@@ -167,6 +184,7 @@ export default function App() {
         <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
       )}
       {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
+      {showPromo && <PromoModal onClose={() => setShowPromo(false)} />}
     </div>
   );
 }
@@ -450,6 +468,18 @@ function AuthScreen({ onAuthed }) {
             {loading ? "Секунду…" : mode === "login" ? "Войти" : "Создать аккаунт"}
           </button>
         </form>
+        {mode === "register" && (
+          <p className="empty-hint" style={{ fontSize: 11, marginTop: 10, textAlign: "center" }}>
+            Регистрируясь, вы принимаете{" "}
+            <a href="/legal/terms" style={{ color: "var(--violet-glow)" }}>
+              Пользовательское соглашение
+            </a>{" "}
+            и{" "}
+            <a href="/legal/privacy" style={{ color: "var(--violet-glow)" }}>
+              Политику конфиденциальности
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );
@@ -498,19 +528,27 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
         >
           💜 Поддержать проект
         </ContactButton>
+        <a href="/legal" className="btn-ghost" style={{ textDecoration: "none", fontSize: 12.5 }}>
+          📜 Юридическая информация
+        </a>
         <div className="user-chip">
-          {user.avatar_base64 ? (
-            <img
-              src={user.avatar_base64}
-              alt=""
-              className="user-avatar"
-              style={{ objectFit: "cover" }}
-            />
-          ) : (
-            <span className="user-avatar">{displayName[0]?.toUpperCase()}</span>
-          )}
+          <AvatarFrame frame={user.avatar_frame}>
+            {user.avatar_base64 ? (
+              <img
+                src={user.avatar_base64}
+                alt=""
+                className="user-avatar"
+                style={{ objectFit: "cover" }}
+              />
+            ) : (
+              <span className="user-avatar">{displayName[0]?.toUpperCase()}</span>
+            )}
+          </AvatarFrame>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <span className="user-name">{displayName}</span> <CustomBadge badge={user.badge} />
+            <span className="user-name" style={user.name_color ? { color: user.name_color } : undefined}>
+              {displayName}
+            </span>{" "}
+            <CustomBadge badge={user.badge} />
             {typeof user.level === "number" && (
               <div className="level-block">
                 <div className="level-row">
@@ -552,6 +590,11 @@ function LevelBadge({ level }) {
       ● Ур.{level}
     </span>
   );
+}
+
+function AvatarFrame({ frame, children }) {
+  if (!frame) return children;
+  return <span className={`avatar-frame avatar-frame-${frame}`}>{children}</span>;
 }
 
 function CustomBadge({ badge }) {
@@ -1767,15 +1810,7 @@ function AccountView({ user, onUserUpdate, onLogout, viewMode, onToggleViewMode 
       )}
 
       <p className="step-question">🎨 Магазин оформления</p>
-      <div className="result-card shop-teaser">
-        <p style={{ marginTop: 0 }}>Рамки для аватарки, значки и цветные ники — совсем скоро ✨</p>
-        <div className="chip-row" style={{ marginBottom: 0 }}>
-          <span className="chip shop-preview-item">🖼 Неоновая рамка</span>
-          <span className="chip shop-preview-item">💎 Бейдж "VIP"</span>
-          <span className="chip shop-preview-item">🌈 Цветной ник</span>
-          <span className="chip shop-preview-item">✨ Анимированный аватар</span>
-        </div>
-      </div>
+      <ShopView user={user} />
 
       <p className="step-question">Профиль</p>
       <form onSubmit={handleSaveProfile} className="auth-form" style={{ marginBottom: 20 }}>
@@ -3189,6 +3224,7 @@ function AdminView({ isAdmin }) {
     { id: "activity", label: "Модерация", icon: ShieldCheck, count: stats?.rejected_today || 0 },
     { id: "leaderboard", label: "Рейтинг", icon: Trophy },
     ...(isAdmin ? [{ id: "manage", label: "Управление", icon: UserCog }] : []),
+    ...(isAdmin ? [{ id: "shop", label: "Заявки магазина", icon: Sparkles }] : []),
   ];
 
   function exportUsersCsv() {
@@ -3516,6 +3552,7 @@ function AdminView({ isAdmin }) {
       )}
 
       {tab === "manage" && isAdmin && <AdminUserEditor onChanged={loadAll} />}
+      {tab === "shop" && isAdmin && <AdminShopPurchases />}
     </div>
   );
 }
@@ -3710,200 +3747,6 @@ function AdminUserEditor({ onChanged }) {
         )}
       </div>
     </section>
-  );
-}
-
-function LegacyAdminView({ isAdmin }) {
-  const [stats, setStats] = useState(null);
-  const [users, setUsers] = useState(null);
-  const [leaderboard, setLeaderboard] = useState(null);
-  const [activity, setActivity] = useState(null);
-  const [error, setError] = useState("");
-  const [tab, setTab] = useState("overview");
-
-  const loadAll = useCallback(() => {
-    Promise.all([api.adminStats(), api.adminUsers(), api.adminLeaderboard(), api.adminActivity()])
-      .then(([s, u, l, a]) => {
-        setStats(s);
-        setUsers(u);
-        setLeaderboard(l);
-        setActivity(a);
-      })
-      .catch((e) => setError(e.message));
-  }, []);
-
-  useEffect(() => {
-    loadAll();
-    const interval = setInterval(() => {
-      if (!document.hidden) loadAll();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [loadAll]);
-
-  const maxSignup = stats ? Math.max(1, ...stats.signups_by_day.map((d) => d.count)) : 1;
-
-  return (
-    <div className="view bt-wide">
-      <ScreenHeader title="Админка" subtitle="Статистика и активность проекта" />
-      {error && <p className="form-error">{error}</p>}
-
-      {stats && (
-        <div className="admin-stat-grid">
-          <div className="admin-stat-card online">
-            <span className="admin-stat-value">{stats.online_now}</span>
-            <span className="admin-stat-label">🟢 Онлайн сейчас</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.total_users}</span>
-            <span className="admin-stat-label">👥 Всего пользователей</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.new_today}</span>
-            <span className="admin-stat-label">🆕 Новых сегодня</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.new_week}</span>
-            <span className="admin-stat-label">🆕 Новых за неделю</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.active_today}</span>
-            <span className="admin-stat-label">✅ Активны сегодня</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.active_week}</span>
-            <span className="admin-stat-label">✅ Активны за неделю</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.total_messages}</span>
-            <span className="admin-stat-label">💬 Сообщений всего</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.total_gallery_posts}</span>
-            <span className="admin-stat-label">🖼️ Постов в галерее</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.total_comments}</span>
-            <span className="admin-stat-label">💭 Комментариев</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.total_likes}</span>
-            <span className="admin-stat-label">❤️ Лайков</span>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-value">{stats.total_favorites}</span>
-            <span className="admin-stat-label">⭐ В избранном</span>
-          </div>
-          <div className="admin-stat-card warn">
-            <span className="admin-stat-value">{stats.rejected_today}</span>
-            <span className="admin-stat-label">🚫 Отклонено сегодня</span>
-          </div>
-        </div>
-      )}
-
-      {stats && (
-        <>
-          <p className="step-question">Регистрации за 14 дней</p>
-          <div className="admin-chart">
-            {stats.signups_by_day.map((d) => (
-              <div key={d.date} className="admin-chart-bar-wrap" title={`${d.date}: ${d.count}`}>
-                <div
-                  className="admin-chart-bar"
-                  style={{ height: `${Math.max(4, (d.count / maxSignup) * 100)}%` }}
-                />
-                <span className="admin-chart-label">{d.date.slice(8)}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      <div className="chip-row" style={{ marginTop: 20 }}>
-        <button className={tab === "overview" ? "chip active" : "chip"} onClick={() => setTab("overview")}>
-          📊 Модерация
-        </button>
-        <button className={tab === "users" ? "chip active" : "chip"} onClick={() => setTab("users")}>
-          👥 Пользователи
-        </button>
-        <button className={tab === "leaderboard" ? "chip active" : "chip"} onClick={() => setTab("leaderboard")}>
-          🏆 Топ по опыту
-        </button>
-        {isAdmin && (
-          <button className={tab === "manage" ? "chip active" : "chip"} onClick={() => setTab("manage")}>
-            🛡 Управление
-          </button>
-        )}
-      </div>
-
-      {tab === "manage" && isAdmin && <AdminUserManage />}
-
-      {tab === "overview" && (
-        <div className="fav-list" style={{ marginTop: 12 }}>
-          {activity === null && <p className="empty-hint">Загружаю…</p>}
-          {activity && activity.length === 0 && <p className="empty-hint">Пока пусто.</p>}
-          {activity?.map((e, i) => (
-            <div key={i} className="fav-item" style={{ flexDirection: "column", alignItems: "stretch" }}>
-              <div className="inline-actions" style={{ justifyContent: "space-between" }}>
-                <span className="empty-hint" style={{ fontSize: 12 }}>
-                  {e.kind === "gallery_post" ? "🖼️ Пост" : e.kind === "gallery_comment" ? "💭 Комментарий" : "🌍 Общий чат"} ·{" "}
-                  {e.author}
-                </span>
-                <span
-                  className={e.status === "approved" ? "saved-msg" : "form-error"}
-                  style={{ fontSize: 12, margin: 0 }}
-                >
-                  {e.status === "approved" ? "✅ одобрено" : `🚫 отклонено${e.reject_reason ? ": " + e.reject_reason : ""}`}
-                </span>
-              </div>
-              <p style={{ marginTop: 6 }}>{e.content}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "users" && (
-        <div className="fav-list" style={{ marginTop: 12 }}>
-          {users?.map((u) => (
-            <div key={u.id} className="fav-item">
-              {u.avatar ? (
-                <img src={u.avatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-              ) : (
-                <span className="user-avatar">{u.name[0]?.toUpperCase()}</span>
-              )}
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontWeight: 700 }}>
-                  {u.is_online && <span className="online-dot" title="Онлайн" />} {u.name} <LevelBadge level={u.level} />{" "}
-                  {u.is_admin && "🛡"}
-                </p>
-                <p className="empty-hint" style={{ margin: 0, fontSize: 12 }}>
-                  {u.email || ""} {u.telegram_username ? "@" + u.telegram_username : ""} · XP {u.xp} · 🔥{u.current_streak}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "leaderboard" && (
-        <div className="fav-list" style={{ marginTop: 12 }}>
-          {leaderboard?.map((u, i) => (
-            <div key={u.id} className="fav-item">
-              <span style={{ fontWeight: 900, fontSize: 18, width: 24, flexShrink: 0 }}>{i + 1}</span>
-              {u.avatar ? (
-                <img src={u.avatar} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-              ) : (
-                <span className="user-avatar">{u.name[0]?.toUpperCase()}</span>
-              )}
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontWeight: 700 }}>
-                  {u.name} <LevelBadge level={u.level} />
-                </p>
-              </div>
-              <span className="empty-hint">{u.xp} XP</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -4547,16 +4390,21 @@ function PublicProfileModal({ userId, onClose }) {
         {profile && (
           <>
             <div className="inline-actions" style={{ marginBottom: 10 }}>
-              {profile.avatar ? (
-                <img src={profile.avatar} alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover" }} />
-              ) : (
-                <span className="user-avatar" style={{ width: 56, height: 56, fontSize: 22 }}>
-                  {profile.name[0]?.toUpperCase()}
-                </span>
-              )}
+              <AvatarFrame frame={profile.avatar_frame}>
+                {profile.avatar ? (
+                  <img src={profile.avatar} alt="" style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover" }} />
+                ) : (
+                  <span className="user-avatar" style={{ width: 56, height: 56, fontSize: 22 }}>
+                    {profile.name[0]?.toUpperCase()}
+                  </span>
+                )}
+              </AvatarFrame>
               <div>
                 <p style={{ margin: 0, fontWeight: 700, fontSize: 17 }}>
-                  {profile.is_me ? "Ты" : profile.name} <CustomBadge badge={profile.badge} />
+                  <span style={profile.name_color ? { color: profile.name_color } : undefined}>
+                    {profile.is_me ? "Ты" : profile.name}
+                  </span>{" "}
+                  <CustomBadge badge={profile.badge} />
                 </p>
                 <p className="empty-hint" style={{ margin: 0 }}>
                   Ур. {profile.level} · {profile.level_title}
@@ -4791,6 +4639,396 @@ function PublicGalleryPostPage({ postId, loggedIn }) {
             </button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ==================== Магазин оформления ====================
+
+function ShopView({ user }) {
+  const [catalog, setCatalog] = useState(null);
+  const [purchases, setPurchases] = useState([]);
+  const [error, setError] = useState("");
+  const [buyingId, setBuyingId] = useState(null);
+  const [msg, setMsg] = useState("");
+
+  const load = useCallback(() => {
+    Promise.all([api.shopCatalog(), api.shopMyPurchases()])
+      .then(([c, p]) => {
+        setCatalog(c);
+        setPurchases(p);
+      })
+      .catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(load, [load]);
+
+  function statusFor(itemId) {
+    const relevant = purchases.filter((p) => p.item_id === itemId);
+    if (relevant.some((p) => p.status === "fulfilled")) return "fulfilled";
+    if (relevant.some((p) => p.status === "pending")) return "pending";
+    return null;
+  }
+
+  async function buy(itemId) {
+    setBuyingId(itemId);
+    setMsg("");
+    try {
+      await api.shopPurchase(itemId);
+      setMsg(
+        "✅ Заявка отправлена! Напиши мне (кнопка «Связь со мной» в меню слева), чтобы оплатить — после оплаты сразу применю украшение на твой аккаунт."
+      );
+      load();
+    } catch (e) {
+      setMsg("Ошибка: " + e.message);
+    } finally {
+      setBuyingId(null);
+    }
+  }
+
+  if (!catalog) {
+    return <p className="empty-hint">Загружаю витрину…</p>;
+  }
+
+  const categories = [
+    { key: "frame", title: "🖼 Рамки для аватарки" },
+    { key: "name_color", title: "🎨 Цвет ника" },
+    { key: "title", title: "🏷 Титулы" },
+  ];
+
+  return (
+    <div>
+      {error && <p className="form-error">{error}</p>}
+
+      {Object.entries(catalog.packages).map(([key, pkg]) => {
+        const status = statusFor(`package:${key}`);
+        return (
+          <div key={key} className="shop-package-banner">
+            <p className="shop-package-title">{pkg.name}</p>
+            <p className="empty-hint" style={{ marginBottom: 10 }}>
+              {pkg.description}
+            </p>
+            <p style={{ marginBottom: 12 }}>
+              <span className="shop-package-price">{pkg.price}₽</span>
+              <span className="shop-package-original">{pkg.original_price}₽</span>
+            </p>
+            <button
+              className="btn-primary"
+              disabled={!!status || buyingId === `package:${key}`}
+              onClick={() => buy(`package:${key}`)}
+            >
+              {status === "fulfilled"
+                ? "✅ Уже куплено"
+                : status === "pending"
+                ? "⏳ Ждём оплату"
+                : buyingId === `package:${key}`
+                ? "…"
+                : "🚀 Купить пакет"}
+            </button>
+          </div>
+        );
+      })}
+
+      {categories.map((cat) => {
+        const items = Object.entries(catalog.items).filter(([, item]) => item.category === cat.key);
+        if (items.length === 0) return null;
+        return (
+          <div key={cat.key} className="shop-section">
+            <p className="shop-section-title">{cat.title}</p>
+            <div className="shop-grid">
+              {items.map(([id, item]) => {
+                const status = statusFor(id);
+                return (
+                  <div key={id} className="shop-item">
+                    {cat.key === "name_color" && <span className="shop-item-swatch" style={{ background: item.value }} />}
+                    <span className="shop-item-name">{item.name}</span>
+                    <span className="shop-item-price">{item.price}₽</span>
+                    {status === "fulfilled" && <span className="shop-status-fulfilled">✅ Куплено</span>}
+                    {status === "pending" && <span className="shop-status-pending">⏳ Ждём оплату</span>}
+                    {!status && (
+                      <button className="btn-secondary shop-buy-btn" disabled={buyingId === id} onClick={() => buy(id)}>
+                        {buyingId === id ? "…" : "Купить"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {msg && (
+        <p className="saved-msg" style={{ whiteSpace: "pre-wrap" }}>
+          {msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PromoModal({ onClose }) {
+  const [buying, setBuying] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function buy() {
+    setBuying(true);
+    try {
+      await api.shopPurchase("package:starter");
+      setDone(true);
+    } catch (e) {
+      alert("Не удалось оформить заявку: " + e.message);
+    } finally {
+      setBuying(false);
+    }
+  }
+
+  return (
+    <div className="bot-login-overlay" onClick={onClose}>
+      <div className="bot-login-modal promo-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="promo-modal-emoji">🎉</div>
+        <h3 style={{ margin: "0 0 8px" }}>Стартовый набор украшений</h3>
+        {!done ? (
+          <>
+            <p className="empty-hint" style={{ marginBottom: 14 }}>
+              Огненная рамка + золотой ник + титул «Легенда» — одним пакетом со скидкой.
+            </p>
+            <p style={{ marginBottom: 16 }}>
+              <span className="shop-package-price">39₽</span>
+              <span className="shop-package-original">67₽</span>
+            </p>
+            <button className="btn-primary" onClick={buy} disabled={buying} style={{ width: "100%", marginBottom: 10 }}>
+              {buying ? "…" : "🚀 Хочу пакет"}
+            </button>
+            <button className="btn-ghost" onClick={onClose}>
+              Не сейчас
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="saved-msg" style={{ marginBottom: 16 }}>
+              Заявка отправлена! Напиши мне (кнопка «Связь со мной» в меню) — оплатишь и сразу получишь набор.
+            </p>
+            <button className="btn-primary" onClick={onClose}>
+              Понятно
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminShopPurchases() {
+  const [purchases, setPurchases] = useState(null);
+  const [status, setStatus] = useState("pending");
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
+
+  const load = useCallback(() => {
+    api
+      .adminShopPurchases(status)
+      .then(setPurchases)
+      .catch((e) => setError(e.message));
+  }, [status]);
+
+  useEffect(load, [load]);
+
+  async function fulfill(id) {
+    setBusyId(id);
+    try {
+      await api.adminFulfillPurchase(id);
+      load();
+    } catch (e) {
+      alert("Не удалось подтвердить: " + e.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function cancel(id) {
+    if (!window.confirm("Отменить эту заявку?")) return;
+    setBusyId(id);
+    try {
+      await api.adminCancelPurchase(id);
+      load();
+    } catch (e) {
+      alert("Не удалось отменить: " + e.message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="chip-row">
+        {["pending", "fulfilled", "cancelled", "all"].map((s) => (
+          <button key={s} className={status === s ? "chip active" : "chip"} onClick={() => setStatus(s)}>
+            {s === "pending" ? "⏳ Ожидают" : s === "fulfilled" ? "✅ Подтверждены" : s === "cancelled" ? "❌ Отменены" : "Все"}
+          </button>
+        ))}
+      </div>
+      {error && <p className="form-error">{error}</p>}
+      {purchases && purchases.length === 0 && <p className="empty-hint">Пока пусто.</p>}
+      <div className="fav-list">
+        {purchases?.map((p) => (
+          <div key={p.id} className="fav-item">
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontWeight: 700 }}>
+                {p.user_name} — {p.item_name}
+              </p>
+              <p className="empty-hint" style={{ margin: 0 }}>
+                {p.price}₽ · {new Date(p.created_at).toLocaleString("ru-RU")}
+              </p>
+            </div>
+            {p.status === "pending" && (
+              <div className="inline-actions" style={{ margin: 0 }}>
+                <button className="btn-primary" style={{ padding: "6px 12px", fontSize: 12 }} disabled={busyId === p.id} onClick={() => fulfill(p.id)}>
+                  ✅ Оплачено
+                </button>
+                <button className="btn-ghost small" onClick={() => cancel(p.id)}>
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ==================== Юридические документы (публичные страницы, без входа) ====================
+
+// Лёгкий рендер markdown-подобного текста без внешних библиотек — понимает
+// заголовки (# ##), жирный текст (**...**) и списки (- пункт).
+function renderLegalBody(text) {
+  const lines = text.split("\n");
+  const blocks = [];
+  let listBuffer = [];
+
+  function flushList() {
+    if (listBuffer.length > 0) {
+      blocks.push(
+        <ul key={`list-${blocks.length}`} style={{ margin: "8px 0 16px", paddingLeft: 22 }}>
+          {listBuffer.map((item, i) => (
+            <li key={i} style={{ marginBottom: 4 }}>
+              {renderInline(item)}
+            </li>
+          ))}
+        </ul>
+      );
+      listBuffer = [];
+    }
+  }
+
+  function renderInline(str) {
+    const parts = str.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) =>
+      part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part
+    );
+  }
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("- ") || trimmed.startsWith("— ")) {
+      listBuffer.push(trimmed.slice(2));
+      return;
+    }
+    flushList();
+    if (trimmed.startsWith("## ")) {
+      blocks.push(
+        <h3 key={idx} style={{ marginTop: 28, marginBottom: 8, fontSize: 18 }}>
+          {trimmed.slice(3)}
+        </h3>
+      );
+    } else if (trimmed.startsWith("# ")) {
+      blocks.push(
+        <h2 key={idx} style={{ marginTop: 0, marginBottom: 12 }}>
+          {trimmed.slice(2)}
+        </h2>
+      );
+    } else if (trimmed === "") {
+      // пропускаем пустые строки — отступы между блоками уже заданы CSS
+    } else if (trimmed === "---") {
+      blocks.push(<hr key={idx} style={{ margin: "20px 0", border: "none", borderTop: "1px solid var(--border)" }} />);
+    } else {
+      blocks.push(
+        <p key={idx} style={{ margin: "0 0 12px", lineHeight: 1.7 }}>
+          {renderInline(trimmed)}
+        </p>
+      );
+    }
+  });
+  flushList();
+  return blocks;
+}
+
+function LegalPage({ slug }) {
+  function goHome() {
+    window.history.replaceState({}, "", "/");
+    window.location.reload();
+  }
+
+  if (!slug) {
+    return (
+      <div className="auth-screen">
+        <ParticlesBG />
+        <div className="auth-card" style={{ position: "relative", zIndex: 2, maxWidth: 560, textAlign: "left" }}>
+          <div className="brand">
+            <span className="brand-mark">Б</span>
+            <div>
+              <h1 className="brand-title">ботяра</h1>
+              <p className="brand-sub">юридическая информация</p>
+            </div>
+          </div>
+          <div className="fav-list">
+            {LEGAL_ORDER.map((s) => (
+              <a
+                key={s}
+                href={`/legal/${s}`}
+                className="fav-item"
+                style={{ textDecoration: "none", color: "inherit", display: "block" }}
+              >
+                {LEGAL_DOCS[s].title}
+              </a>
+            ))}
+          </div>
+          <button className="btn-ghost" onClick={goHome} style={{ marginTop: 12 }}>
+            ◀️ На главную
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const doc = LEGAL_DOCS[slug];
+
+  return (
+    <div className="auth-screen">
+      <ParticlesBG />
+      <div className="auth-card" style={{ position: "relative", zIndex: 2, maxWidth: 680, textAlign: "left" }}>
+        <div className="brand">
+          <span className="brand-mark">Б</span>
+          <div>
+            <h1 className="brand-title">ботяра</h1>
+            <p className="brand-sub">юридическая информация</p>
+          </div>
+        </div>
+        {!doc ? (
+          <p className="form-error">Документ не найден.</p>
+        ) : (
+          <div style={{ fontSize: 14 }}>{renderLegalBody(doc.body)}</div>
+        )}
+        <div className="inline-actions" style={{ marginTop: 16 }}>
+          <a href="/legal" style={{ color: "var(--violet-glow)", fontSize: 13 }}>
+            Все документы
+          </a>
+          <button className="btn-ghost" onClick={goHome}>
+            ◀️ На главную
+          </button>
+        </div>
       </div>
     </div>
   );
