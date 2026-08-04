@@ -1,20 +1,35 @@
 // Адрес бэкенда — тот самый API на Timeweb (регион Амстердам).
 // Когда появится собственный поддомен для API (например api.botyara.ru),
 // достаточно будет поменять только эту строку.
-const API_BASE = "https://mitinvladimir416-glitch-botyara-api-e748.twc1.net";
+const DEFAULT_API_BASE = "https://mitinvladimir416-glitch-botyara-api-e748.twc1.net";
+const configuredApiBase = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).trim();
+const parsedApiBase = new URL(configuredApiBase);
+if (!/^https?:$/.test(parsedApiBase.protocol)) {
+  throw new Error("VITE_API_BASE_URL must use http or https");
+}
+const API_BASE = parsedApiBase.href.replace(/\/$/, "");
 export const WS_BASE = API_BASE.replace(/^http/, "ws");
 export const SHARE_BASE = API_BASE;
 
 const TOKEN_KEY = "botyara_token";
 
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  const token = sessionStorage.getItem(TOKEN_KEY);
+  if (token) return token;
+  const legacyToken = localStorage.getItem(TOKEN_KEY);
+  if (legacyToken) {
+    sessionStorage.setItem(TOKEN_KEY, legacyToken);
+    localStorage.removeItem(TOKEN_KEY);
+  }
+  return legacyToken;
 }
 
 export function setToken(token) {
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(TOKEN_KEY, token);
+    localStorage.removeItem(TOKEN_KEY);
   } else {
+    sessionStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(TOKEN_KEY);
   }
 }
@@ -120,8 +135,6 @@ export const api = {
   listAnnouncements: () => request("/api/announcements", { auth: true }),
   postAnnouncement: (content, aiPolish) =>
     request("/api/admin/announcements", { method: "POST", auth: true, body: { content, ai_polish: aiPolish } }),
-  postAnnouncement: (content, aiPolish) =>
-    request("/api/admin/announcements", { method: "POST", auth: true, body: { content, ai_polish: aiPolish } }),
 
   // ---- Галерея промптов ----
   publishToGallery: (favoriteId) =>
@@ -162,6 +175,19 @@ export const api = {
   listNotifications: () => request("/api/notifications", { auth: true }),
   clearNotifications: () => request("/api/notifications", { method: "DELETE", auth: true }),
 
+  // ---- Shop ----
+  shopCatalog: () => request("/api/shop/catalog"),
+  shopInventory: () => request("/api/shop/inventory", { auth: true }),
+  shopMyPurchases: () => request("/api/shop/my-purchases", { auth: true }),
+  shopPurchase: (key) =>
+    request("/api/shop/purchase", {
+      method: "POST",
+      auth: true,
+      body: key.startsWith("premium_") ? { plan: key } : { item_key: key },
+    }),
+  shopEquip: (category, shopItemId) =>
+    request("/api/shop/equip", { method: "POST", auth: true, body: { category, shop_item_id: shopItemId } }),
+
   // ---- Админ-панель ----
   adminStats: () => request("/api/admin/stats", { auth: true }),
   adminUsers: () => request("/api/admin/users", { auth: true }),
@@ -170,6 +196,12 @@ export const api = {
   adminSearchUsers: (q) => request(`/api/admin/users/search?q=${encodeURIComponent(q || "")}`, { auth: true }),
   adminUpdateUser: (userId, patch) =>
     request(`/api/admin/users/${userId}`, { method: "PATCH", auth: true, body: patch }),
+  adminShopPurchases: (status = "pending") =>
+    request(`/api/admin/shop/purchases?status=${encodeURIComponent(status)}`, { auth: true }),
+  adminFulfillPurchase: (id) =>
+    request(`/api/admin/shop/purchases/${id}/fulfill`, { method: "POST", auth: true }),
+  adminCancelPurchase: (id) =>
+    request(`/api/admin/shop/purchases/${id}/cancel`, { method: "POST", auth: true }),
 
   // ---- Совместные комнаты ----
   createRoom: (category) => request("/api/rooms", { method: "POST", auth: true, body: { category } }),

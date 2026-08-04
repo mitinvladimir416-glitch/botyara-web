@@ -39,6 +39,9 @@ npm run dev
 
 ## После первого деплоя сайта — не забыть
 
-1. На бэкенде (`botyara-api`) сузить CORS с `allow_origins=["*"]` до `["https://botyara.ru"]`
-   в файле `main.py`, чтобы запросы к API могли идти только с настоящего сайта
-2. В @BotFather выполнить `/setdomain` для рабочего входа через Telegram
+1. Указать разрешённые адреса сайта в `CORS_ALLOWED_ORIGINS` у API.
+2. В @BotFather выполнить `/setdomain` для рабочего входа через Telegram.
+
+## Configuration
+
+Set `VITE_API_BASE_URL` at build time to point the client at the API. The value must be an absolute HTTP(S) URL. If it is omitted, the current production API URL is used.
