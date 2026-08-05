@@ -24,7 +24,6 @@ import { LEGAL_DOCS, LEGAL_ORDER } from "./legalContent.js";
 const BOT_USERNAME = "halpervovan_bot"; // имя бота без @, для кнопки "Войти через Telegram"
 
 const NAV_ITEMS = [
-  { id: "home", label: "Главная", icon: "⌂" },
   { id: "chat", label: "Общение", icon: "💬" },
   { id: "translate", label: "Переводчик", icon: "🌐" },
   { id: "prompts", label: "Промпты", icon: "🎨" },
@@ -33,8 +32,6 @@ const NAV_ITEMS = [
   { id: "gallery", label: "Галерея", icon: "🖼️" },
   { id: "rooms", label: "Комнаты", icon: "🤝" },
   { id: "whatsnew", label: "Что нового", icon: "📰" },
-  { id: "shop", label: "Магазин", icon: "💎" },
-  { id: "legal", label: "Документы", icon: "⚖️" },
   { id: "account", label: "Аккаунт", icon: "👤" },
 ];
 
@@ -54,9 +51,13 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState(() =>
-    new URLSearchParams(window.location.search).get("room") ? "rooms" : "home"
+    new URLSearchParams(window.location.search).get("room") ? "rooms" : "chat"
   );
-  const [viewMode, setViewMode] = useState(() => (window.innerWidth <= 820 ? "mobile" : "desktop"));
+  const [viewMode, setViewMode] = useState(() => {
+    const saved = localStorage.getItem("botyara_view_mode");
+    if (saved === "mobile" || saved === "desktop") return saved;
+    return window.innerWidth <= 780 ? "mobile" : "desktop";
+  });
   const [profileUserId, setProfileUserId] = useState(null);
   const [showPromo, setShowPromo] = useState(false);
 
@@ -79,44 +80,50 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    async function restoreLogin() {
-      try {
-        if (!getToken()) {
-          const session = await api.restoreSession();
-          setToken(session.access_token);
-        }
-        setUser(await api.me());
-      } catch {
-        setToken(null);
-      } finally {
-        setCheckingAuth(false);
-      }
+    const token = getToken();
+    if (!token) {
+      setCheckingAuth(false);
+      return;
     }
-    restoreLogin();
+    api
+      .me()
+      .then(setUser)
+      .catch(() => setToken(null))
+      .finally(() => setCheckingAuth(false));
   }, []);
 
   useEffect(() => {
-    localStorage.removeItem("botyara_view_mode");
+    localStorage.setItem("botyara_view_mode", viewMode);
     document.documentElement.classList.remove("force-mobile", "force-desktop");
-    const syncViewMode = () => setViewMode(window.innerWidth <= 820 ? "mobile" : "desktop");
-    window.addEventListener("resize", syncViewMode);
-    return () => window.removeEventListener("resize", syncViewMode);
-  }, []);
+    document.documentElement.classList.add(viewMode === "mobile" ? "force-mobile" : "force-desktop");
+
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      if (viewMode === "desktop") {
+        const desktopWidth = 1024;
+        const scale = Math.min(1, window.innerWidth / desktopWidth);
+        meta.setAttribute(
+          "content",
+          `width=${desktopWidth}, initial-scale=${scale}, minimum-scale=0.25, maximum-scale=2`
+        );
+      } else {
+        meta.setAttribute("content", "width=device-width, initial-scale=1");
+      }
+    }
+  }, [viewMode]);
+
+  function toggleViewMode() {
+    setViewMode((m) => (m === "mobile" ? "desktop" : "mobile"));
+  }
 
   const handleAuthed = (data) => {
     setToken(data.access_token);
     setUser(data.user);
   };
 
-  const handleLogout = async () => {
-    try {
-      await api.logout();
-    } catch {
-      // Локальный выход должен сработать даже при временной недоступности API.
-    } finally {
-      setToken(null);
-      setUser(null);
-    }
+  const handleLogout = () => {
+    setToken(null);
+    setUser(null);
   };
 
   const publicGalleryMatch = window.location.pathname.match(/^\/gallery\/(\d+)/);
@@ -150,9 +157,10 @@ export default function App() {
         onChange={setActiveTab}
         user={user}
         onLogout={handleLogout}
+        viewMode={viewMode}
+        onToggleViewMode={toggleViewMode}
       />
-      <main className={`content content-${activeTab}`}>
-        {activeTab === "home" && <HomeView user={user} onNavigate={setActiveTab} />}
+      <main className="content">
         {activeTab === "chat" && <ChatView />}
         {activeTab === "translate" && <TranslateView />}
         {activeTab === "prompts" && <PromptsView />}
@@ -162,21 +170,18 @@ export default function App() {
         {activeTab === "rooms" && <RoomsView />}
         {activeTab === "admin" && user.is_moderator && <AdminView isAdmin={user.is_admin} />}
         {activeTab === "whatsnew" && <WhatsNewView isAdmin={user.is_admin} />}
-        {activeTab === "shop" && <ShopView user={user} />}
-        {activeTab === "legal" && <LegalHubView />}
         {activeTab === "account" && (
           <AccountView
             user={user}
             onUserUpdate={setUser}
             onLogout={handleLogout}
             viewMode={viewMode}
-            onToggleViewMode={() => {}}
+            onToggleViewMode={toggleViewMode}
           />
         )}
       </main>
-      <SiteLegalBar onOpenLegal={() => setActiveTab("legal")} />
       {activeTab !== "admin" && (
-        <ChatWidget isAdmin={user.is_moderator} isMobile={false} currentUserId={user.id} />
+        <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
       )}
       {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
       {showPromo && <PromoModal onClose={() => setShowPromo(false)} />}
@@ -357,6 +362,8 @@ function AuthScreen({ onAuthed }) {
 
       <ParticlesBG />
 
+      <img src="/bot-right.jpg" alt="" className="botyara-side-image right" />
+      <img src="/bot-left.jpg" alt="" className="botyara-side-image left" />
 
       <h1 className={showAuth ? "botyara-hero-title hide" : "botyara-hero-title"}>БОТЯРА</h1>
 
@@ -480,49 +487,33 @@ function AuthScreen({ onAuthed }) {
 
 // ==================== Каркас приложения ====================
 
-function Sidebar({ active, onChange, user, onLogout }) {
+function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode }) {
   const displayName = user.display_name || user.telegram_first_name || user.email || "Пользователь";
   const navItems = user.is_moderator
     ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
     : NAV_ITEMS;
-  const navGroups = [
-    { label: "Главное", ids: ["home"] },
-    { label: "Создавать", ids: ["chat", "translate", "prompts", "cover"] },
-    { label: "Сообщество", ids: ["favorites", "gallery", "rooms", "whatsnew"] },
-    { label: "Сервис", ids: ["shop", "legal", "account", "admin"] },
-  ];
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
         <span className="brand-mark small">Б</span>
-        <span className="sidebar-brand-copy">
-          <span className="sidebar-brand-text">ботяра</span>
-          <small>AI CREATIVE CLUB</small>
-        </span>
+        <span className="sidebar-brand-text">ботяра</span>
       </div>
       <nav className="sidebar-nav">
-        {navGroups.map((group) => {
-          const items = group.ids.map((id) => navItems.find((item) => item.id === id)).filter(Boolean);
-          if (!items.length) return null;
-          return (
-            <div className="nav-group" key={group.label}>
-              <span className="nav-group-label">{group.label}</span>
-              {items.map((item) => (
-                <button
-                  key={item.id}
-                  data-nav={item.id}
-                  className={active === item.id ? "nav-item active" : "nav-item"}
-                  onClick={() => onChange(item.id)}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-          );
-        })}
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            className={active === item.id ? "nav-item active" : "nav-item"}
+            onClick={() => onChange(item.id)}
+          >
+            <span className="nav-icon">{item.icon}</span>
+            <span>{item.label}</span>
+          </button>
+        ))}
       </nav>
       <div className="sidebar-footer">
+        <button className="device-toggle-btn" onClick={onToggleViewMode} title="Переключить вид сайта">
+          {viewMode === "mobile" ? "🖥 Версия для ПК" : "📱 Мобильная версия"}
+        </button>
         <ContactButton
           className="btn-ghost"
           intro="Как удобнее написать — выбирай:"
@@ -580,51 +571,6 @@ function Sidebar({ active, onChange, user, onLogout }) {
         </button>
       </div>
     </aside>
-  );
-}
-
-function HomeView({ user, onNavigate }) {
-  const displayName = user.display_name || user.telegram_first_name || user.email || "друг";
-  const actions = [
-    { id: "chat", icon: "✦", title: "Начать общение", text: "Диалог с AI в выбранной роли" },
-    { id: "prompts", icon: "◈", title: "Создать промпт", text: "Для музыки, изображения или видео" },
-    { id: "cover", icon: "▣", title: "Сделать обложку", text: "Идея и визуальная концепция трека" },
-    { id: "shop", icon: "♢", title: "Магазин рамок", text: "35 новых коллекционных оформлений" },
-    { id: "gallery", icon: "◎", title: "Открыть галерею", text: "Работы и идеи сообщества" },
-    { id: "account", icon: "◉", title: "Мой профиль", text: "Уровень, достижения и оформление" },
-  ];
-  return (
-    <div className="home-view">
-      <section className="home-hero">
-        <span className="home-eyebrow">BOTYARA · AI CREATIVE CLUB</span>
-        <h1>Добро пожаловать, {displayName}</h1>
-        <p>Ваше пространство для общения, творчества и коллекционных украшений профиля.</p>
-        <div className="home-hero-actions">
-          <button className="btn-primary" onClick={() => onNavigate("chat")}>Начать диалог</button>
-          <button className="btn-secondary" onClick={() => onNavigate("shop")}>Открыть магазин</button>
-        </div>
-      </section>
-      <section className="home-action-grid" aria-label="Быстрый доступ">
-        {actions.map((action) => (
-          <button className="home-action-card" key={action.id} onClick={() => onNavigate(action.id)}>
-            <span className="home-action-icon">{action.icon}</span>
-            <span><strong>{action.title}</strong><small>{action.text}</small></span>
-            <span className="home-action-arrow">→</span>
-          </button>
-        ))}
-      </section>
-    </div>
-  );
-}
-
-function SiteLegalBar({ onOpenLegal }) {
-  return (
-    <footer className="site-legal-bar">
-      <span className="site-legal-owner">© 2026 «24ПромтБот» · Бурлакова Елена Владимировна · ИНН 524505287983</span>
-      <button type="button" onClick={onOpenLegal}>Все документы</button>
-      <a href="/legal/privacy">Конфиденциальность</a>
-      <a href="/legal/terms">Соглашение</a>
-    </footer>
   );
 }
 
@@ -723,12 +669,7 @@ function ScreenHeader({ title, subtitle }) {
 }
 
 function Bubble({ role, children }) {
-  return (
-    <div className={role === "user" ? "bubble bubble-user" : "bubble bubble-bot"}>
-      <span className="bubble-author">{role === "user" ? "Вы" : "Ботяра AI"}</span>
-      <span className="bubble-content">{children}</span>
-    </div>
-  );
+  return <div className={role === "user" ? "bubble bubble-user" : "bubble bubble-bot"}>{children}</div>;
 }
 
 // ==================== Общение ====================
@@ -856,7 +797,7 @@ function ChatView() {
   const currentRole = roles?.[activeRole];
 
   return (
-    <div className="view bt-wide chat-workspace">
+    <div className="view bt-wide">
       <style>{`
         .bt-tabs-wrap {
           position: relative;
@@ -1869,6 +1810,7 @@ function AccountView({ user, onUserUpdate, onLogout, viewMode, onToggleViewMode 
       )}
 
       <p className="step-question">🎨 Магазин оформления</p>
+      <ShopView user={user} />
 
       <p className="step-question">Профиль</p>
       <form onSubmit={handleSaveProfile} className="auth-form" style={{ marginBottom: 20 }}>
@@ -4723,7 +4665,7 @@ function ShopView({ user }) {
   useEffect(load, [load]);
 
   function statusFor(itemId) {
-    const relevant = purchases.filter((p) => p.item_key === itemId);
+    const relevant = purchases.filter((p) => p.item_id === itemId);
     if (relevant.some((p) => p.status === "fulfilled")) return "fulfilled";
     if (relevant.some((p) => p.status === "pending")) return "pending";
     return null;
@@ -4756,22 +4698,13 @@ function ShopView({ user }) {
   ];
 
   return (
-    <div className="shop-showcase">
-      <div className="shop-showcase-intro">
-        <div>
-          <span className="shop-kicker">Коллекция оформления</span>
-          <h3>Создайте свой визуальный стиль</h3>
-          <p>Рамки, цвета имени и титулы уже можно примерить взглядом. Покупки откроются после подключения ЮKassa.</p>
-        </div>
-        <span className="shop-view-mode">Витрина</span>
-      </div>
+    <div>
       {error && <p className="form-error">{error}</p>}
 
-      {Object.entries(catalog.packages || {}).map(([key, pkg]) => {
+      {Object.entries(catalog.packages).map(([key, pkg]) => {
         const status = statusFor(`package:${key}`);
         return (
-          <div key={key} className="shop-package-banner shop-package-premium">
-            <div className="shop-package-orbit" aria-hidden="true"><span>Б</span></div>
+          <div key={key} className="shop-package-banner">
             <p className="shop-package-title">{pkg.name}</p>
             <p className="empty-hint" style={{ marginBottom: 10 }}>
               {pkg.description}
@@ -4782,7 +4715,7 @@ function ShopView({ user }) {
             </p>
             <button
               className="btn-primary"
-              disabled={!catalog.purchases_enabled || !!status || buyingId === `package:${key}`}
+              disabled={!!status || buyingId === `package:${key}`}
               onClick={() => buy(`package:${key}`)}
             >
               {status === "fulfilled"
@@ -4791,38 +4724,31 @@ function ShopView({ user }) {
                 ? "⏳ Ждём оплату"
                 : buyingId === `package:${key}`
                 ? "…"
-                : catalog.purchases_enabled
-                ? "🚀 Купить пакет"
-                : "Скоро с ЮKassa"}
+                : "🚀 Купить пакет"}
             </button>
           </div>
         );
       })}
 
       {categories.map((cat) => {
-        const items = catalog.items.filter((item) => item.category === cat.key);
+        const items = Object.entries(catalog.items).filter(([, item]) => item.category === cat.key);
         if (items.length === 0) return null;
         return (
           <div key={cat.key} className="shop-section">
             <p className="shop-section-title">{cat.title}</p>
             <div className="shop-grid">
-              {items.map((item) => {
-                const id = item.key;
+              {items.map(([id, item]) => {
                 const status = statusFor(id);
                 return (
-                  <div key={id} className={`shop-item shop-item-${cat.key}`}>
-                    <div className="shop-item-visual" aria-hidden="true">
-                      {cat.key === "frame" && <span className={`shop-avatar-preview avatar-frame avatar-frame-${item.css_value}`}>Б</span>}
-                      {cat.key === "name_color" && <span className="shop-name-preview" style={{ color: item.css_value }}>Ботяра</span>}
-                      {cat.key === "title" && <span className="shop-title-preview" style={{ color: item.badge_color, borderColor: item.badge_color }}>{item.badge_text}</span>}
-                    </div>
+                  <div key={id} className="shop-item">
+                    {cat.key === "name_color" && <span className="shop-item-swatch" style={{ background: item.value }} />}
                     <span className="shop-item-name">{item.name}</span>
                     <span className="shop-item-price">{item.price}₽</span>
                     {status === "fulfilled" && <span className="shop-status-fulfilled">✅ Куплено</span>}
                     {status === "pending" && <span className="shop-status-pending">⏳ Ждём оплату</span>}
                     {!status && (
-                      <button className="btn-secondary shop-buy-btn" disabled={!catalog.purchases_enabled || buyingId === id} onClick={() => buy(id)}>
-                        {buyingId === id ? "…" : catalog.purchases_enabled ? "Купить" : "Скоро с ЮKassa"}
+                      <button className="btn-secondary shop-buy-btn" disabled={buyingId === id} onClick={() => buy(id)}>
+                        {buyingId === id ? "…" : "Купить"}
                       </button>
                     )}
                   </div>
@@ -4843,12 +4769,28 @@ function ShopView({ user }) {
 }
 
 function PromoModal({ onClose }) {
+  const [buying, setBuying] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function buy() {
+    setBuying(true);
+    try {
+      await api.shopPurchase("package:starter");
+      setDone(true);
+    } catch (e) {
+      alert("Не удалось оформить заявку: " + e.message);
+    } finally {
+      setBuying(false);
+    }
+  }
+
   return (
     <div className="bot-login-overlay" onClick={onClose}>
       <div className="bot-login-modal promo-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="promo-modal-emoji">🎉</div>
         <h3 style={{ margin: "0 0 8px" }}>Стартовый набор украшений</h3>
-        <>
+        {!done ? (
+          <>
             <p className="empty-hint" style={{ marginBottom: 14 }}>
               Огненная рамка + золотой ник + титул «Легенда» — одним пакетом со скидкой.
             </p>
@@ -4856,13 +4798,23 @@ function PromoModal({ onClose }) {
               <span className="shop-package-price">39₽</span>
               <span className="shop-package-original">67₽</span>
             </p>
-            <button className="btn-primary" disabled style={{ width: "100%", marginBottom: 10 }}>
-              Скоро с ЮKassa
+            <button className="btn-primary" onClick={buy} disabled={buying} style={{ width: "100%", marginBottom: 10 }}>
+              {buying ? "…" : "🚀 Хочу пакет"}
             </button>
             <button className="btn-ghost" onClick={onClose}>
               Не сейчас
             </button>
-        </>
+          </>
+        ) : (
+          <>
+            <p className="saved-msg" style={{ marginBottom: 16 }}>
+              Заявка отправлена! Напиши мне (кнопка «Связь со мной» в меню) — оплатишь и сразу получишь набор.
+            </p>
+            <button className="btn-primary" onClick={onClose}>
+              Понятно
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -5013,34 +4965,19 @@ function renderLegalBody(text) {
   return blocks;
 }
 
-function LegalHubView() {
-  return (
-    <div className="view legal-hub">
-      <ScreenHeader title="Юридическая информация" subtitle="Прозрачные правила, защита данных и документы сервиса в одном месте" />
-      <div className="legal-trust-card">
-        <span className="legal-trust-icon">⚖️</span>
-        <div>
-          <strong>Всё открыто и доступно</strong>
-          <p>Документы открываются без авторизации и всегда доступны по постоянным ссылкам.</p>
-        </div>
-      </div>
-      <div className="legal-doc-grid">
-        {LEGAL_ORDER.map((slug, index) => (
-          <a className="legal-doc-card" href={`/legal/${slug}`} key={slug}>
-            <span className="legal-doc-number">{String(index + 1).padStart(2, "0")}</span>
-            <span className="legal-doc-title">{LEGAL_DOCS[slug].title}</span>
-            <span className="legal-doc-arrow">→</span>
-          </a>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function LegalPage({ slug }) {
+  const [copiedSlug, setCopiedSlug] = useState(null);
+
   function goHome() {
     window.history.replaceState({}, "", "/");
     window.location.reload();
+  }
+
+  function copyLink(s) {
+    const url = `${window.location.origin}/legal/${s}`;
+    navigator.clipboard?.writeText(url);
+    setCopiedSlug(s);
+    setTimeout(() => setCopiedSlug((cur) => (cur === s ? null : cur)), 1500);
   }
 
   if (!slug) {
@@ -5057,14 +4994,21 @@ function LegalPage({ slug }) {
           </div>
           <div className="fav-list">
             {LEGAL_ORDER.map((s) => (
-              <a
-                key={s}
-                href={`/legal/${s}`}
-                className="fav-item"
-                style={{ textDecoration: "none", color: "inherit", display: "block" }}
-              >
-                {LEGAL_DOCS[s].title}
-              </a>
+              <div key={s} className="fav-item" style={{ alignItems: "center" }}>
+                <a href={`/legal/${s}`} style={{ textDecoration: "none", color: "inherit", flex: 1 }}>
+                  {LEGAL_DOCS[s].title}
+                </a>
+                <button
+                  className="btn-ghost small"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    copyLink(s);
+                  }}
+                  title="Скопировать прямую ссылку"
+                >
+                  {copiedSlug === s ? "✅" : "🔗"}
+                </button>
+              </div>
             ))}
           </div>
           <button className="btn-ghost" onClick={goHome} style={{ marginTop: 12 }}>
@@ -5088,15 +5032,28 @@ function LegalPage({ slug }) {
             <p className="brand-sub">юридическая информация</p>
           </div>
         </div>
+        <div className="inline-actions" style={{ marginTop: 0, marginBottom: 12, flexWrap: "wrap" }}>
+          <a href="/legal" style={{ color: "var(--violet-glow)", fontSize: 13 }}>
+            ◀️ Все документы
+          </a>
+          <button className="btn-ghost" onClick={goHome}>
+            🏠 На главную
+          </button>
+        </div>
         {!doc ? (
           <p className="form-error">Документ не найден.</p>
         ) : (
           <div style={{ fontSize: 14 }}>{renderLegalBody(doc.body)}</div>
         )}
-        <div className="inline-actions" style={{ marginTop: 16 }}>
+        <div className="inline-actions" style={{ marginTop: 16, flexWrap: "wrap" }}>
           <a href="/legal" style={{ color: "var(--violet-glow)", fontSize: 13 }}>
             Все документы
           </a>
+          {doc && (
+            <button className="btn-secondary" onClick={() => copyLink(slug)} style={{ padding: "6px 14px", fontSize: 13 }}>
+              {copiedSlug === slug ? "✅ Ссылка скопирована" : "🔗 Скопировать ссылку"}
+            </button>
+          )}
           <button className="btn-ghost" onClick={goHome}>
             ◀️ На главную
           </button>
