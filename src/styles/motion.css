@@ -1,0 +1,61 @@
+@keyframes bt-ui-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.75rem, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes bt-ui-overlay-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bt-ui-toast-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0.75rem, 0, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes bt-ui-spin {
+  to { transform: rotate(1turn); }
+}
+
+.bt-motion-enter {
+  animation: bt-ui-enter var(--bt-duration-enter) var(--bt-ease-emphasized) both;
+}
+
+.bt-motion-interactive {
+  transition:
+    color var(--bt-duration-fast) var(--bt-ease-standard),
+    background-color var(--bt-duration-fast) var(--bt-ease-standard),
+    border-color var(--bt-duration-fast) var(--bt-ease-standard),
+    box-shadow var(--bt-duration-base) var(--bt-ease-emphasized),
+    opacity var(--bt-duration-fast) var(--bt-ease-standard),
+    transform var(--bt-duration-base) var(--bt-ease-emphasized);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --bt-duration-instant: 1ms;
+    --bt-duration-fast: 1ms;
+    --bt-duration-base: 1ms;
+    --bt-duration-slow: 1ms;
+    --bt-duration-enter: 1ms;
+  }
+
+  .bt-motion-enter,
+  .bt-motion-interactive {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}

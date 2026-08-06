@@ -8,11 +8,46 @@ if (!/^https?:$/.test(parsedApiBase.protocol)) {
   throw new Error("VITE_API_BASE_URL must use http or https");
 }
 const REMOTE_API_BASE = parsedApiBase.href.replace(/\/$/, "");
+
+// Browser development uses the Vite same-origin proxy because the production
+// backend does not allow localhost in its CORS policy. Production calls the
+// backend directly.
 const API_BASE = import.meta.env.DEV ? "" : REMOTE_API_BASE;
+
 export const WS_BASE = REMOTE_API_BASE.replace(/^http/, "ws");
 export const SHARE_BASE = REMOTE_API_BASE;
 
 const TOKEN_KEY = "botyara_token";
+
+function sanitizeForDevLog(value) {
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(sanitizeForDevLog);
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nestedValue]) => {
+      if (/token|password|secret/i.test(key)) return [key, "[redacted]"];
+      return [key, sanitizeForDevLog(nestedValue)];
+    })
+  );
+}
+
+function logDevResponse({ method, url, backendUrl, status, data }) {
+  if (!import.meta.env.DEV) return;
+  console.groupCollapsed(`[API] ${method} ${url} -> ${status}`);
+  console.info("Request URL:", url);
+  console.info("Backend URL:", backendUrl);
+  console.info("Status:", status);
+  console.info("Response:", sanitizeForDevLog(data));
+  console.groupEnd();
+}
+
+function logDevFetchError({ method, url, backendUrl, error }) {
+  if (!import.meta.env.DEV) return;
+  console.error(`[API] ${method} ${url} fetch failed`, {
+    backendUrl,
+    error,
+  });
+}
 
 export function getToken() {
   const token = sessionStorage.getItem(TOKEN_KEY);
@@ -36,6 +71,8 @@ export function setToken(token) {
 }
 
 async function request(path, { method = "GET", body, auth = false, isForm = false } = {}) {
+  const url = `${API_BASE}${path}`;
+  const backendUrl = `${REMOTE_API_BASE}${path}`;
   const headers = {};
   if (!isForm) headers["Content-Type"] = "application/json";
   if (auth) {
@@ -43,12 +80,22 @@ async function request(path, { method = "GET", body, auth = false, isForm = fals
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    credentials: "include",
-    body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      credentials: "include",
+      body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
+    });
+  } catch (fetchError) {
+    logDevFetchError({ method, url, backendUrl, error: fetchError });
+    const error = new Error("Не удалось соединиться с сервером. Проверьте подключение и повторите попытку.");
+    error.code = "NETWORK_ERROR";
+    error.url = url;
+    error.cause = fetchError;
+    throw error;
+  }
 
   let data = null;
   try {
@@ -57,11 +104,17 @@ async function request(path, { method = "GET", body, auth = false, isForm = fals
     // тело может быть пустым — это нормально для некоторых ответов
   }
 
+  logDevResponse({ method, url, backendUrl, status: response.status, data });
+
   if (!response.ok) {
     const detail =
       (data && (data.detail || data.message)) || `Ошибка запроса (код ${response.status})`;
     const message = typeof detail === "string" ? detail : JSON.stringify(detail);
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    error.url = url;
+    error.body = data;
+    throw error;
   }
 
   return data;

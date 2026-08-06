@@ -25,8 +25,9 @@ import {
 } from "lucide-react";
 import { api, getToken, setToken, WS_BASE, SHARE_BASE } from "./api.js";
 import { LEGAL_DOCS, LEGAL_ORDER } from "./legalContent.js";
-
-const BOT_USERNAME = "halpervovan_bot"; // имя бота без @, для кнопки "Войти через Telegram"
+import AppShell from "./components/layout/AppShell.jsx";
+import DesktopSidebar from "./components/layout/DesktopSidebar.jsx";
+import AuthScreen from "./features/auth/AuthScreen.jsx";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная", icon: "✦" },
@@ -154,19 +155,37 @@ export default function App() {
     return <AuthScreen onAuthed={handleAuthed} />;
   }
 
+  const navItems = user.is_moderator
+    ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
+    : NAV_ITEMS;
+
   return (
-    <div className="app-shell">
-      <ParticlesBG />
-      <TopBar />
-      <Sidebar
+    <AppShell
+      active={activeTab}
+      navItems={navItems}
+      onNavigate={setActiveTab}
+      user={user}
+      viewMode={viewMode}
+      sidebar={<Sidebar
         active={activeTab}
         onChange={setActiveTab}
         user={user}
         onLogout={handleLogout}
         viewMode={viewMode}
         onToggleViewMode={toggleViewMode}
-      />
-      <main className="content">
+        navItems={navItems}
+      />}
+      topbar={<TopBar />}
+      overlays={
+        <>
+          {activeTab !== "admin" && (
+            <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
+          )}
+          {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
+          {showPromo && <PromoModal onClose={() => setShowPromo(false)} />}
+        </>
+      }
+    >
         {activeTab === "home" && <HomeView user={user} onNavigate={setActiveTab} />}
         {activeTab === "chat" && <ChatView />}
         {activeTab === "translate" && <TranslateView />}
@@ -186,13 +205,7 @@ export default function App() {
             onToggleViewMode={toggleViewMode}
           />
         )}
-      </main>
-      {activeTab !== "admin" && (
-        <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
-      )}
-      {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
-      {showPromo && <PromoModal onClose={() => setShowPromo(false)} />}
-    </div>
+    </AppShell>
   );
 }
 
@@ -215,282 +228,6 @@ function ParticlesBG() {
 }
 
 // ==================== Экран входа ====================
-
-function AuthScreen({ onAuthed }) {
-  const [mode, setMode] = useState("login"); // "login" | "register"
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
-
-  const [botLoginOpen, setBotLoginOpen] = useState(false);
-  const [botLoginToken, setBotLoginToken] = useState(null);
-  const [botUsername, setBotUsername] = useState(BOT_USERNAME);
-  const [botLoginError, setBotLoginError] = useState("");
-  const [botLoginStarting, setBotLoginStarting] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowAuth(true), 2800);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Пока открыто окно входа через бота — опрашиваем сайт, подтвердил ли пользователь вход
-  useEffect(() => {
-    if (!botLoginOpen || !botLoginToken) return;
-    const interval = setInterval(async () => {
-      try {
-        const data = await api.pollBotLogin(botLoginToken);
-        if (data.status === "confirmed") {
-          clearInterval(interval);
-          setBotLoginOpen(false);
-          onAuthed(data);
-        }
-      } catch (e) {
-        clearInterval(interval);
-        setBotLoginError(e.message || "Время ожидания истекло — попробуй ещё раз");
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [botLoginOpen, botLoginToken, onAuthed]);
-
-  async function startBotLogin() {
-    setBotLoginStarting(true);
-    setBotLoginError("");
-    try {
-      const data = await api.startBotLogin();
-      setBotLoginToken(data.token);
-      setBotUsername(data.bot_username || BOT_USERNAME);
-      setBotLoginOpen(true);
-      setCopied(false);
-    } catch (e) {
-      setError("Не удалось запустить вход через бота: " + e.message);
-    } finally {
-      setBotLoginStarting(false);
-    }
-  }
-
-  function retryBotLogin() {
-    setBotLoginToken(null);
-    setBotLoginError("");
-    startBotLogin();
-  }
-
-  function copyBotCommand() {
-    const command = `/start web_auth_${botLoginToken}`;
-    navigator.clipboard?.writeText(command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const data = mode === "login" ? await api.login(email, password) : await api.register(email, password);
-      onAuthed(data);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="auth-screen">
-      <style>{`
-        .auth-screen { position: relative; }
-        @keyframes botyaraTitleIn {
-          from { opacity: 0; transform: scale(0.6) translateY(-24px); }
-          to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        @keyframes botyaraSlideRight {
-          from { opacity: 0; transform: translateX(130%); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes botyaraSlideLeft {
-          from { opacity: 0; transform: translateX(-130%); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-        .botyara-hero-title {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          z-index: 2;
-          text-align: center;
-          font-size: clamp(2rem, 6vw, 3.2rem);
-          font-weight: 900;
-          letter-spacing: 0.12em;
-          color: #fff;
-          text-shadow: 0 0 24px rgba(168, 85, 247, 0.85), 0 0 48px rgba(168, 85, 247, 0.5);
-          margin: 0;
-          animation: botyaraTitleIn 0.7s ease-out both;
-          transition: opacity 0.5s ease, transform 0.5s ease;
-        }
-        .botyara-hero-title.hide {
-          opacity: 0;
-          transform: translate(-50%, -50%) scale(0.85);
-        }
-        .botyara-hero-title:not(.hide) {
-          transform: translate(-50%, -50%);
-        }
-        .botyara-side-image {
-          position: fixed;
-          top: 50%;
-          width: min(24vw, 340px);
-          transform: translateY(-50%);
-          opacity: 0;
-          pointer-events: none;
-          z-index: 0;
-          filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
-        }
-        .botyara-side-image.right {
-          right: -10px;
-          animation: botyaraSlideRight 0.7s ease-out 1.0s forwards;
-        }
-        .botyara-side-image.left {
-          left: -10px;
-          animation: botyaraSlideLeft 0.7s ease-out 1.7s forwards;
-        }
-        @media (max-width: 900px) {
-          .botyara-side-image { display: none; }
-        }
-        .auth-card {
-          transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-        .auth-card.entering {
-          opacity: 0;
-          transform: translateY(24px);
-          pointer-events: none;
-        }
-      `}</style>
-
-      <ParticlesBG />
-
-      <img src="/bot-right.jpg" alt="" className="botyara-side-image right" />
-      <img src="/bot-left.jpg" alt="" className="botyara-side-image left" />
-
-      <h1 className={showAuth ? "botyara-hero-title hide" : "botyara-hero-title"}>БОТЯРА</h1>
-
-      <div
-        className={showAuth ? "auth-card" : "auth-card entering"}
-        style={{ position: "relative", zIndex: 2 }}
-      >
-        <div className="brand">
-          <span className="brand-mark">Б</span>
-          <div>
-            <h1 className="brand-title">ботяра</h1>
-            <p className="brand-sub">жми, общайся, отрывайся</p>
-          </div>
-        </div>
-
-        <button className="btn-secondary bot-login-btn" onClick={startBotLogin} disabled={botLoginStarting} type="button">
-          {botLoginStarting ? "Секунду…" : "🚀 Войти через бота"}
-        </button>
-
-        {botLoginOpen && (
-          <div className="bot-login-overlay" onClick={() => setBotLoginOpen(false)}>
-            <div className="bot-login-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="bot-login-icon">✈️</div>
-              <h3 style={{ margin: "0 0 6px" }}>Авторизация через Telegram</h3>
-              {!botLoginError ? (
-                <>
-                  <p className="empty-hint" style={{ marginBottom: 16 }}>
-                    Откройте Telegram и нажмите «Запустить» у бота — вы автоматически войдёте.
-                  </p>
-                  <a
-                    className="btn-primary"
-                    style={{ display: "block", textAlign: "center", textDecoration: "none", marginBottom: 14 }}
-                    href={`https://t.me/${botUsername}?start=web_auth_${botLoginToken}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    🚀 Открыть Telegram
-                  </a>
-                  <p className="empty-hint" style={{ marginBottom: 6 }}>
-                    Или скопируйте команду и отправьте её боту @{botUsername}:
-                  </p>
-                  <div className="bot-login-command" onClick={copyBotCommand} title="Нажми, чтобы скопировать">
-                    /start web_auth_{botLoginToken}
-                    {copied && <span className="saved-msg" style={{ marginLeft: 8 }}>Скопировано!</span>}
-                  </div>
-                  <div className="inline-actions" style={{ justifyContent: "center", marginTop: 16 }}>
-                    <span className="empty-hint">⏳ Ожидание авторизации…</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="form-error" style={{ marginBottom: 16 }}>{botLoginError}</p>
-                  <button className="btn-primary" onClick={retryBotLogin} style={{ marginBottom: 10 }}>
-                    Попробовать ещё раз
-                  </button>
-                </>
-              )}
-              <button className="btn-ghost" onClick={() => setBotLoginOpen(false)} style={{ marginTop: 4 }}>
-                Закрыть
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="divider"><span>или</span></div>
-
-        <div className="mode-switch">
-          <button
-            className={mode === "login" ? "mode-btn active" : "mode-btn"}
-            onClick={() => setMode("login")}
-            type="button"
-          >
-            Вход
-          </button>
-          <button
-            className={mode === "register" ? "mode-btn active" : "mode-btn"}
-            onClick={() => setMode("register")}
-            type="button"
-          >
-            Регистрация
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Пароль"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={6}
-            required
-          />
-          {error && <p className="form-error">{error}</p>}
-          <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? "Секунду…" : mode === "login" ? "Войти" : "Создать аккаунт"}
-          </button>
-        </form>
-        {mode === "register" && (
-          <p className="empty-hint" style={{ fontSize: 11, marginTop: 10, textAlign: "center" }}>
-            Регистрируясь, вы принимаете{" "}
-            <a href="/legal/terms" style={{ color: "var(--violet-glow)" }}>
-              Пользовательское соглашение
-            </a>{" "}
-            и{" "}
-            <a href="/legal/privacy" style={{ color: "var(--violet-glow)" }}>
-              Политику конфиденциальности
-            </a>
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ==================== Каркас приложения ====================
 
@@ -603,30 +340,15 @@ function HomeView({ user, onNavigate }) {
   );
 }
 
-function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode }) {
+function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode, navItems }) {
   const displayName = user.display_name || user.telegram_first_name || user.email || "Пользователь";
-  const navItems = user.is_moderator
-    ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
-    : NAV_ITEMS;
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <span className="brand-mark small">Б</span>
-        <span className="sidebar-brand-text">ботяра</span>
-      </div>
-      <nav className="sidebar-nav">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            className={active === item.id ? "nav-item active" : "nav-item"}
-            onClick={() => onChange(item.id)}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
-      <div className="sidebar-footer">
+    <DesktopSidebar
+      active={active}
+      items={navItems}
+      onNavigate={onChange}
+      footer={
+        <div className="sidebar-footer">
         <button className="device-toggle-btn" onClick={onToggleViewMode} title="Переключить вид сайта">
           {viewMode === "mobile" ? "🖥 Версия для ПК" : "📱 Мобильная версия"}
         </button>
@@ -685,8 +407,9 @@ function Sidebar({ active, onChange, user, onLogout, viewMode, onToggleViewMode 
         <button className="btn-ghost" onClick={onLogout}>
           Выйти
         </button>
-      </div>
-    </aside>
+        </div>
+      }
+    />
   );
 }
 
