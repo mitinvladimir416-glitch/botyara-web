@@ -152,6 +152,9 @@ export default function App() {
     new URLSearchParams(window.location.search).get("preview") === "shop-premium";
   const isProfilePremiumPreview =
     new URLSearchParams(window.location.search).get("preview") === "profile-premium";
+  // Аварийный откат ко всем legacy-разделам разом, без деплоя: ?preview=legacy
+  const isLegacyPreview =
+    new URLSearchParams(window.location.search).get("preview") === "legacy";
   if (publicGalleryMatch) {
     return <PublicGalleryPostPage postId={publicGalleryMatch[1]} loggedIn={!!getToken()} />;
   }
@@ -232,25 +235,41 @@ export default function App() {
             )
             : isHomePremiumPreview
             ? <PremiumHomeView user={user} onNavigate={setActiveTab} />
-            : <HomeView user={user} onNavigate={setActiveTab} />
+            : isLegacyPreview
+            ? <HomeView user={user} onNavigate={setActiveTab} />
+            : <PremiumHomeView user={user} onNavigate={setActiveTab} />
         )}
-        {activeTab === "chat" && (isChatPremiumPreview ? <ChatPremiumView user={user} /> : <ChatView />)}
+        {activeTab === "chat" && (isLegacyPreview ? <ChatView /> : <ChatPremiumView user={user} />)}
         {activeTab === "translate" && <TranslateView />}
-        {activeTab === "prompts" && <PromptsView />}
+        {activeTab === "prompts" && (isLegacyPreview ? <PromptsView /> : <PromptStudioView />)}
         {activeTab === "cover" && <CoverView />}
         {activeTab === "favorites" && <FavoritesView />}
-        {activeTab === "gallery" && <GalleryView isAdmin={user.is_moderator} />}
+        {activeTab === "gallery" && (
+          isLegacyPreview
+            ? <GalleryView isAdmin={user.is_moderator} />
+            : <GalleryPremiumView isAdmin={user.is_moderator} />
+        )}
         {activeTab === "rooms" && <RoomsView />}
         {activeTab === "admin" && user.is_moderator && <AdminView isAdmin={user.is_admin} />}
         {activeTab === "whatsnew" && <WhatsNewView isAdmin={user.is_admin} />}
         {activeTab === "account" && (
-          <AccountView
-            user={user}
-            onUserUpdate={setUser}
-            onLogout={handleLogout}
-            viewMode={viewMode}
-            onToggleViewMode={toggleViewMode}
-          />
+          isLegacyPreview ? (
+            <AccountView
+              user={user}
+              onUserUpdate={setUser}
+              onLogout={handleLogout}
+              viewMode={viewMode}
+              onToggleViewMode={toggleViewMode}
+            />
+          ) : (
+            <ProfilePremiumView
+              user={user}
+              onUserUpdate={setUser}
+              onLogout={handleLogout}
+              viewMode={viewMode}
+              onToggleViewMode={toggleViewMode}
+            />
+          )
         )}
     </AppShell>
   );
