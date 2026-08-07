@@ -140,8 +140,7 @@ export default function App() {
   };
 
   const publicGalleryMatch = window.location.pathname.match(/^\/gallery\/(\d+)/);
-  const isHomePremiumPreview =
-    new URLSearchParams(window.location.search).get("preview") === "home-premium";
+  const isHomePremiumPreview = true;
   const isPromptsPremiumPreview =
     new URLSearchParams(window.location.search).get("preview") === "prompts-premium";
   const isChatPremiumPreview =
@@ -230,9 +229,7 @@ export default function App() {
                 onToggleViewMode={toggleViewMode}
               />
             )
-            : isHomePremiumPreview
-            ? <PremiumHomeView user={user} onNavigate={setActiveTab} />
-            : <HomeView user={user} onNavigate={setActiveTab} />
+            : <PremiumHomeView user={user} onNavigate={setActiveTab} />
         )}
         {activeTab === "chat" && (isChatPremiumPreview ? <ChatPremiumView user={user} /> : <ChatView />)}
         {activeTab === "translate" && <TranslateView />}
