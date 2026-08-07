@@ -115,6 +115,7 @@ async function request(path, { method = "GET", body, auth = false, isForm = fals
     error.url = url;
     error.body = data;
     throw error;
+
   }
 
   return data;

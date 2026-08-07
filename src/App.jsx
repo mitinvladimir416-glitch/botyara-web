@@ -28,6 +28,12 @@ import { LEGAL_DOCS, LEGAL_ORDER } from "./legalContent.js";
 import AppShell from "./components/layout/AppShell.jsx";
 import DesktopSidebar from "./components/layout/DesktopSidebar.jsx";
 import AuthScreen from "./features/auth/AuthScreen.jsx";
+import PremiumHomeView from "./features/home/HomeView.jsx";
+import PromptStudioView from "./features/prompts-premium/PromptStudioView.jsx";
+import ChatPremiumView from "./features/chat-premium/ChatPremiumView.jsx";
+import GalleryPremiumView from "./features/gallery-premium/GalleryPremiumView.jsx";
+import ShopPremiumView from "./features/shop-premium/ShopPremiumView.jsx";
+import ProfilePremiumView from "./features/profile-premium/ProfilePremiumView.jsx";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная", icon: "✦" },
@@ -134,6 +140,18 @@ export default function App() {
   };
 
   const publicGalleryMatch = window.location.pathname.match(/^\/gallery\/(\d+)/);
+  const isHomePremiumPreview =
+    new URLSearchParams(window.location.search).get("preview") === "home-premium";
+  const isPromptsPremiumPreview =
+    new URLSearchParams(window.location.search).get("preview") === "prompts-premium";
+  const isChatPremiumPreview =
+    new URLSearchParams(window.location.search).get("preview") === "chat-premium";
+  const isGalleryPremiumPreview =
+    new URLSearchParams(window.location.search).get("preview") === "gallery-premium";
+  const isShopPremiumPreview =
+    new URLSearchParams(window.location.search).get("preview") === "shop-premium";
+  const isProfilePremiumPreview =
+    new URLSearchParams(window.location.search).get("preview") === "profile-premium";
   if (publicGalleryMatch) {
     return <PublicGalleryPostPage postId={publicGalleryMatch[1]} loggedIn={!!getToken()} />;
   }
@@ -159,15 +177,22 @@ export default function App() {
     ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
     : NAV_ITEMS;
 
+  const shellActive =
+    activeTab === "home" && isChatPremiumPreview
+      ? "chat"
+      : activeTab === "home" && isPromptsPremiumPreview
+      ? "prompts"
+      : activeTab;
+
   return (
     <AppShell
-      active={activeTab}
+      active={shellActive}
       navItems={navItems}
       onNavigate={setActiveTab}
       user={user}
       viewMode={viewMode}
       sidebar={<Sidebar
-        active={activeTab}
+        active={shellActive}
         onChange={setActiveTab}
         user={user}
         onLogout={handleLogout}
@@ -178,7 +203,7 @@ export default function App() {
       topbar={<TopBar />}
       overlays={
         <>
-          {activeTab !== "admin" && (
+          {activeTab !== "admin" && !isChatPremiumPreview && (
             <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
           )}
           {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
@@ -186,8 +211,30 @@ export default function App() {
         </>
       }
     >
-        {activeTab === "home" && <HomeView user={user} onNavigate={setActiveTab} />}
-        {activeTab === "chat" && <ChatView />}
+        {activeTab === "home" && (
+          isChatPremiumPreview
+            ? <ChatPremiumView user={user} />
+            : isPromptsPremiumPreview
+            ? <PromptStudioView />
+            : isGalleryPremiumPreview
+            ? <GalleryPremiumView isAdmin={user.is_moderator} />
+            : isShopPremiumPreview
+            ? <ShopPremiumView user={user} />
+            : isProfilePremiumPreview
+            ? (
+              <ProfilePremiumView
+                user={user}
+                onUserUpdate={setUser}
+                onLogout={handleLogout}
+                viewMode={viewMode}
+                onToggleViewMode={toggleViewMode}
+              />
+            )
+            : isHomePremiumPreview
+            ? <PremiumHomeView user={user} onNavigate={setActiveTab} />
+            : <HomeView user={user} onNavigate={setActiveTab} />
+        )}
+        {activeTab === "chat" && (isChatPremiumPreview ? <ChatPremiumView user={user} /> : <ChatView />)}
         {activeTab === "translate" && <TranslateView />}
         {activeTab === "prompts" && <PromptsView />}
         {activeTab === "cover" && <CoverView />}
