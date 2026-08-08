@@ -10,6 +10,7 @@ import PremiumButton from "../../components/ui/PremiumButton.jsx";
 import GalleryComment from "./GalleryComment.jsx";
 import GalleryReactions from "./GalleryReactions.jsx";
 import { categoryFor } from "./galleryCategories.js";
+import { getKnownAuthorFrame } from "../../lib/authorFrameCache.js";
 
 function openProfile(userId) {
   if (!userId) return;
@@ -110,7 +111,7 @@ export default function GalleryPostDetail({ postId, isAdmin, onBack }) {
           <GlassCard tone="elevated" padding="lg" className="gallery-premium-detail__card">
             <header className="gallery-premium-detail__author">
               <button type="button" onClick={() => openProfile(post.author_id)}>
-                <AvatarFrame label="Открыть профиль">
+                <AvatarFrame frame={post.author_avatar_frame ?? getKnownAuthorFrame(post.author_id)} label="Открыть профиль">
                   <Avatar src={post.author_avatar} name={post.author} alt={`Аватар ${post.author}`} size="md" shape="squircle" />
                 </AvatarFrame>
                 <span>{post.is_mine ? "Ты" : post.author}</span>

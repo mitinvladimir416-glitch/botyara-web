@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { api, getToken, WS_BASE } from "../../api.js";
 import Avatar from "../../components/ui/Avatar.jsx";
+import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
+import { getKnownAuthorFrame } from "../../lib/authorFrameCache.js";
 import Badge from "../../components/ui/Badge.jsx";
 import GlassCard from "../../components/ui/GlassCard.jsx";
 import PremiumButton from "../../components/ui/PremiumButton.jsx";
@@ -71,13 +73,15 @@ function ChatMessage({ message, isAdmin, highlighted, onReply, onReact, onPin, o
       className={`chat-premium-message ${message.is_mine ? "is-mine" : ""} ${highlighted ? "is-highlighted" : ""}`}
     >
       <button type="button" className="chat-premium-message__avatar" onClick={() => openProfile(message.author_id)}>
-        <Avatar
-          src={message.author_avatar}
-          name={message.author || "Пользователь"}
-          alt={`Аватар ${message.author || "пользователя"}`}
-          size="md"
-          shape="circle"
-        />
+        <AvatarFrame frame={message.author_avatar_frame ?? getKnownAuthorFrame(message.author_id)}>
+          <Avatar
+            src={message.author_avatar}
+            name={message.author || "Пользователь"}
+            alt={`Аватар ${message.author || "пользователя"}`}
+            size="md"
+            shape="circle"
+          />
+        </AvatarFrame>
       </button>
 
       <div className="chat-premium-message__body">
@@ -264,6 +268,7 @@ export default function ChatPremiumView({ user }) {
         author: user?.display_name || user?.telegram_first_name || "Ты",
         author_id: currentUserId,
         author_avatar: user?.avatar_base64 || null,
+        author_avatar_frame: user?.avatar_frame || null,
         author_level: user?.level,
         is_mine: true,
         created_at: new Date().toISOString(),

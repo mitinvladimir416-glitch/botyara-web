@@ -409,6 +409,86 @@
 }
 
 /* =========================================================
+   FRAME GROUPS (Базовые / Premium / Анимированные / Exclusive)
+   ========================================================= */
+
+.shop-frame-groups {
+  display: grid;
+  gap: var(--bt-space-6);
+}
+
+.shop-frame-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bt-space-2);
+  margin-bottom: var(--bt-space-3);
+}
+
+.shop-frame-group__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--bt-color-text-primary);
+  font-family: var(--bt-font-display);
+  font-size: var(--bt-font-size-md);
+}
+
+.shop-frame-group__count {
+  display: inline-grid;
+  min-width: 1.4rem;
+  place-items: center;
+  border-radius: var(--bt-radius-pill);
+  padding: 0.1rem 0.4rem;
+  background: var(--bt-color-accent-soft);
+  color: var(--bt-color-text-secondary);
+  font-size: var(--bt-font-size-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-frame-group__hint {
+  color: var(--bt-color-text-muted);
+  font-size: var(--bt-font-size-xs);
+}
+
+.shop-frame-group__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: var(--bt-space-3);
+  border: 0;
+  border-radius: var(--bt-radius-pill);
+  padding: 0.5rem 1rem;
+  background: rgb(255 255 255 / 0.04);
+  box-shadow: inset 0 0 0 1px var(--bt-color-border);
+  color: var(--bt-color-text-secondary);
+  font-size: var(--bt-font-size-xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.shop-frame-group__toggle:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: var(--bt-color-text-primary);
+}
+
+.shop-frame-group__toggle svg {
+  transition: transform 0.15s ease;
+}
+
+.shop-frame-group__toggle.is-open svg {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-frame-group__toggle svg {
+    transition: none;
+  }
+}
+
+/* =========================================================
    ITEM CARD
    ========================================================= */
 

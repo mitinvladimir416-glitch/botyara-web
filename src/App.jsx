@@ -36,6 +36,7 @@ import GalleryPremiumView from "./features/gallery-premium/GalleryPremiumView.js
 import ShopPremiumView from "./features/shop-premium/ShopPremiumView.jsx";
 import ProfilePremiumView from "./features/profile-premium/ProfilePremiumView.jsx";
 import AvatarFrame from "./components/ui/AvatarFrame.jsx";
+import { getKnownAuthorFrame, rememberAuthorFrame } from "./lib/authorFrameCache.js";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная", icon: "✦" },
@@ -112,6 +113,13 @@ export default function App() {
       .catch(() => setToken(null))
       .finally(() => setCheckingAuth(false));
   }, []);
+
+  // Кэш "какая рамка у какого userId" наполняется отовсюду, где приходит полный
+  // объект пользователя (см. src/lib/authorFrameCache.js) — здесь синхронизируем
+  // свой собственный аккаунт при входе/обновлении профиля.
+  useEffect(() => {
+    if (user) rememberAuthorFrame(user.id, user.avatar_frame);
+  }, [user]);
 
   useEffect(() => {
     document.documentElement.classList.remove("force-mobile", "force-desktop");
@@ -2018,7 +2026,7 @@ function GalleryView({ isAdmin }) {
               {post.content.length > 220 ? post.content.slice(0, 220) + "…" : post.content}
             </p>
             <div className="inline-actions" style={{ marginTop: 8 }}>
-              <AvatarFrame frame={post.author_avatar_frame}>
+              <AvatarFrame frame={post.author_avatar_frame ?? getKnownAuthorFrame(post.author_id)}>
                 {post.author_avatar ? (
                   <img
                     src={post.author_avatar}
@@ -2140,7 +2148,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
         <>
           <div className="result-card">
             <div className="inline-actions" style={{ marginBottom: 6 }}>
-              <AvatarFrame frame={post.author_avatar_frame}>
+              <AvatarFrame frame={post.author_avatar_frame ?? getKnownAuthorFrame(post.author_id)}>
                 {post.author_avatar ? (
                   <img
                     src={post.author_avatar}
@@ -2181,7 +2189,7 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
             {post.comments.length === 0 && <p className="empty-hint">Пока нет комментариев.</p>}
             {post.comments.map((c) => (
               <div key={c.id} className="fav-item">
-                <AvatarFrame frame={c.author_avatar_frame}>
+                <AvatarFrame frame={c.author_avatar_frame ?? getKnownAuthorFrame(c.author_id)}>
                   {c.author_avatar ? (
                     <img
                       src={c.author_avatar}
@@ -2716,7 +2724,7 @@ function ChatWidget({ isAdmin, isMobile, currentUserId }) {
                     : "chat-widget-msg"
                 }
               >
-                <AvatarFrame frame={m.author_avatar_frame}>
+                <AvatarFrame frame={m.author_avatar_frame ?? getKnownAuthorFrame(m.author_id)}>
                   {m.author_avatar ? (
                     <img
                       src={m.author_avatar}
@@ -3141,6 +3149,9 @@ function AdminView({ isAdmin }) {
       setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
       setActivity(Array.isArray(activityData) ? activityData : []);
       setLastUpdated(new Date());
+      [usersData, leaderboardData].forEach((list) => {
+        if (Array.isArray(list)) list.forEach((u) => rememberAuthorFrame(u.id, u.avatar_frame));
+      });
     } catch (e) {
       setError(e.message || "Не удалось загрузить данные админки");
     } finally {
@@ -3553,7 +3564,9 @@ function AdminUserEditor({ onChanged }) {
     setError("");
     try {
       const data = await api.adminSearchUsers(value);
-      setResults(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setResults(list);
+      list.forEach((u) => rememberAuthorFrame(u.id, u.avatar_frame));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -4054,7 +4067,7 @@ function RoomDetail({ code, onBack }) {
       <div className="chip-row">
         {room.participants.map((p) => (
           <span key={p.id} className="chip" style={{ cursor: "pointer" }} onClick={() => openProfile(p.id)}>
-            <AvatarFrame frame={p.avatar_frame}>
+            <AvatarFrame frame={p.avatar_frame ?? getKnownAuthorFrame(p.id)}>
               {p.avatar ? (
                 <img
                   src={p.avatar}
@@ -4373,7 +4386,10 @@ function PublicProfileModal({ userId, onClose }) {
     setError("");
     api
       .getPublicProfile(userId)
-      .then(setProfile)
+      .then((data) => {
+        setProfile(data);
+        rememberAuthorFrame(userId, data.avatar_frame);
+      })
       .catch((e) => setError(e.message));
   }, [userId]);
 
@@ -4590,7 +4606,7 @@ function PublicGalleryPostPage({ postId, loggedIn }) {
           <>
             <div className="result-card">
               <div className="inline-actions" style={{ marginBottom: 8 }}>
-                <AvatarFrame frame={post.author_avatar_frame}>
+                <AvatarFrame frame={post.author_avatar_frame ?? getKnownAuthorFrame(post.author_id)}>
                   {post.author_avatar ? (
                     <img
                       src={post.author_avatar}

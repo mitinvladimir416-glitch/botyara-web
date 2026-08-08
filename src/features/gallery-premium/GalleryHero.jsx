@@ -1,8 +1,10 @@
 import { Compass, MessageCircle, Search, Sparkles, Trophy } from "lucide-react";
 import Avatar from "../../components/ui/Avatar.jsx";
+import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
 import GlassCard from "../../components/ui/GlassCard.jsx";
 import PremiumButton from "../../components/ui/PremiumButton.jsx";
 import { categoryFor, totalReactions } from "./galleryCategories.js";
+import { getKnownAuthorFrame } from "../../lib/authorFrameCache.js";
 
 export default function GalleryHero({
   total,
@@ -92,13 +94,15 @@ export default function GalleryHero({
         {spotlightPost ? (
           <>
             <div className="gallery-premium-hero__spotlight-author">
-              <Avatar
-                src={spotlightPost.author_avatar}
-                name={spotlightPost.author}
-                alt={`Аватар ${spotlightPost.author}`}
-                size="sm"
-                shape="circle"
-              />
+              <AvatarFrame frame={spotlightPost.author_avatar_frame ?? getKnownAuthorFrame(spotlightPost.author_id)}>
+                <Avatar
+                  src={spotlightPost.author_avatar}
+                  name={spotlightPost.author}
+                  alt={`Аватар ${spotlightPost.author}`}
+                  size="sm"
+                  shape="circle"
+                />
+              </AvatarFrame>
               <span>{spotlightPost.is_mine ? "Ты" : spotlightPost.author}</span>
             </div>
 

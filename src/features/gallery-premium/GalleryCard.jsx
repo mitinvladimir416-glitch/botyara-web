@@ -1,8 +1,10 @@
 import { MessageCircle } from "lucide-react";
 import Avatar from "../../components/ui/Avatar.jsx";
+import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import GalleryReactions from "./GalleryReactions.jsx";
 import { categoryFor } from "./galleryCategories.js";
+import { getKnownAuthorFrame } from "../../lib/authorFrameCache.js";
 
 function openProfile(userId) {
   if (!userId) return;
@@ -30,7 +32,9 @@ export default function GalleryCard({ post, onOpen, onReact, index = 0 }) {
 
       <div className="gallery-card__author">
         <button type="button" onClick={() => openProfile(post.author_id)}>
-          <Avatar src={post.author_avatar} name={post.author} alt={`Аватар ${post.author}`} size="sm" shape="circle" />
+          <AvatarFrame frame={post.author_avatar_frame ?? getKnownAuthorFrame(post.author_id)}>
+            <Avatar src={post.author_avatar} name={post.author} alt={`Аватар ${post.author}`} size="sm" shape="circle" />
+          </AvatarFrame>
           <span>{post.is_mine ? "Ты" : post.author}</span>
         </button>
         {post.author_level ? <Badge size="sm" tone="accent">LVL {post.author_level}</Badge> : null}

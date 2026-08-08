@@ -1,6 +1,8 @@
 import { Trash2 } from "lucide-react";
 import Avatar from "../../components/ui/Avatar.jsx";
+import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
 import Badge from "../../components/ui/Badge.jsx";
+import { getKnownAuthorFrame } from "../../lib/authorFrameCache.js";
 
 function openProfile(userId) {
   if (!userId) return;
@@ -11,7 +13,9 @@ export default function GalleryComment({ comment, isAdmin, onDelete }) {
   return (
     <article className="gallery-premium-comment">
       <button type="button" className="gallery-premium-comment__avatar" onClick={() => openProfile(comment.author_id)}>
-        <Avatar src={comment.author_avatar} name={comment.author} alt={`Аватар ${comment.author}`} size="sm" shape="circle" />
+        <AvatarFrame frame={comment.author_avatar_frame ?? getKnownAuthorFrame(comment.author_id)}>
+          <Avatar src={comment.author_avatar} name={comment.author} alt={`Аватар ${comment.author}`} size="sm" shape="circle" />
+        </AvatarFrame>
       </button>
 
       <div className="gallery-premium-comment__body">

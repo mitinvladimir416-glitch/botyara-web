@@ -7,6 +7,7 @@ import ShopProfilePreview from "./ShopProfilePreview.jsx";
 import ShopOffers from "./ShopOffers.jsx";
 import ShopFilters from "./ShopFilters.jsx";
 import ShopCatalogGrid from "./ShopCatalogGrid.jsx";
+import ShopFrameGroups from "./ShopFrameGroups.jsx";
 import ShopCollectionsGrid from "./ShopCollectionsGrid.jsx";
 import ShopInventoryGrid from "./ShopInventoryGrid.jsx";
 import { groupByCollection } from "./shopCollections.js";
@@ -146,16 +147,27 @@ export default function ShopPremiumView({ user }) {
                 onChange={setActiveCategory}
                 totalCount={catalog?.items?.length || 0}
               />
-              <ShopCatalogGrid
-                items={showcaseItems}
-                loading={!catalog && !catalogError}
-                error={catalogError}
-                purchasesEnabled={catalog?.purchases_enabled}
-                statusFor={statusFor}
-                buyingId={buyingId}
-                onBuy={buy}
-                onTryOn={setTryOnItem}
-              />
+              {activeCategory === "frame" && showcaseItems.length > 0 ? (
+                <ShopFrameGroups
+                  items={showcaseItems}
+                  statusFor={statusFor}
+                  purchasesEnabled={catalog?.purchases_enabled}
+                  buyingId={buyingId}
+                  onBuy={buy}
+                  onTryOn={setTryOnItem}
+                />
+              ) : (
+                <ShopCatalogGrid
+                  items={showcaseItems}
+                  loading={!catalog && !catalogError}
+                  error={catalogError}
+                  purchasesEnabled={catalog?.purchases_enabled}
+                  statusFor={statusFor}
+                  buyingId={buyingId}
+                  onBuy={buy}
+                  onTryOn={setTryOnItem}
+                />
+              )}
             </>
           )}
 
