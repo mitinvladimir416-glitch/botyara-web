@@ -829,6 +829,14 @@ textarea::placeholder {
   z-index: var(--bt-z-raised, 60);
 }
 
+/* Полноэкранный mobile-шторка (open && isMobile) должна перекрывать MobileHeader
+   и MobileBottomNav (оба z-index: var(--bt-z-sticky)=100) целиком, а не только
+   собственный z-index:80 внутри .chat-widget-panel-mobile — тот работает только
+   относительно соседей внутри .chat-widget, а не относительно всего AppShell. */
+.chat-widget.chat-widget--sheet-open {
+  z-index: var(--bt-z-modal, 400);
+}
+
 .chat-widget-bubble {
   width: 56px;
   height: 56px;
@@ -943,6 +951,7 @@ textarea::placeholder {
 .chat-widget-messages {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
@@ -1195,7 +1204,11 @@ textarea::placeholder {
   padding-bottom: 12px;
 }
 
-/* Открытая панель чата на мобильном — во весь экран */
+/* Открытая панель чата на мобильном — во весь экран.
+   Свой background/backdrop-filter: базовый .chat-widget-panel полупрозрачный
+   (55% + blur) — рассчитан на маленькое десктопное окно поверх страницы.
+   Для fullscreen-шторки это даёт "просвечивание" страницы насквозь — здесь
+   делаем поверхность полностью непрозрачной, чтобы контент не смешивался. */
 .chat-widget-panel-mobile {
   position: fixed !important;
   inset: 0 !important;
@@ -1203,6 +1216,33 @@ textarea::placeholder {
   height: 100dvh !important;
   border-radius: 0 !important;
   z-index: 80;
+  background: var(--bg-void);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.chat-widget-panel-mobile .chat-widget-header {
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+
+/* Крупная, кликабельная и хорошо заметная зона закрытия шторки (мин. ~40px) */
+.chat-widget-panel-mobile .chat-widget-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 18px;
+}
+.chat-widget-panel-mobile .chat-widget-close:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Composer шторки должен оставаться над жестовой зоной/safe-area снизу */
+.chat-widget-panel-mobile .chat-widget-composer {
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
 
 /* Композер (поле ввода + микрофон + отправить) — умещается по ширине на любом экране */

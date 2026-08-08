@@ -2596,7 +2596,10 @@ function ChatWidget({ isAdmin, isMobile, currentUserId }) {
   }
 
   return (
-    <div className="chat-widget" style={!open && pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined}>
+    <div
+      className={open && isMobile ? "chat-widget chat-widget--sheet-open" : "chat-widget"}
+      style={!open && pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined}
+    >
       {toast && !open && (
         <div className="chat-widget-toast" onClick={() => setOpen(true)}>
           <span className="chat-widget-toast-author">💬 {toast.author}</span>
