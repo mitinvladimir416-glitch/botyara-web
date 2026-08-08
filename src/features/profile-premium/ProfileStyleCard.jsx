@@ -1,12 +1,44 @@
-import { BadgeCheck, ExternalLink, Frame, Music2, Palette, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BadgeCheck, Check, ExternalLink, Frame, Music2, Palette, Sparkles } from "lucide-react";
+import { api } from "../../api.js";
+import Avatar from "../../components/ui/Avatar.jsx";
+import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import GlassCard from "../../components/ui/GlassCard.jsx";
 
-export default function ProfileStyleCard({ user }) {
-  const frameClass = user.avatar_frame ? `avatar-frame avatar-frame-${user.avatar_frame}` : "avatar-frame";
+export default function ProfileStyleCard({ user, onUserUpdate }) {
+  const [ownedFrames, setOwnedFrames] = useState(null);
+  const [equippingId, setEquippingId] = useState(undefined);
+  const [actionError, setActionError] = useState("");
+
+  useEffect(() => {
+    api
+      .shopInventory()
+      .then((items) => {
+        const list = Array.isArray(items) ? items : [];
+        setOwnedFrames(list.filter((item) => item.category === "frame"));
+      })
+      .catch(() => setOwnedFrames([]));
+  }, []);
+
   // Тема оформления (набор из категории "music_theme" в Shop Premium) пока не отдаётся
   // /api/me — поле user.music_theme предполагаемое, до подтверждения бэкендом.
   const themeName = user.music_theme || null;
+  const busy = equippingId !== undefined;
+
+  async function equipFrame(shopItemId) {
+    setEquippingId(shopItemId);
+    setActionError("");
+    try {
+      await api.shopEquip("frame", shopItemId ?? null);
+      const updated = await api.me();
+      onUserUpdate?.(updated);
+    } catch (error) {
+      setActionError(error.message);
+    } finally {
+      setEquippingId(undefined);
+    }
+  }
 
   return (
     <GlassCard tone="elevated" padding="lg" className="profile-style-card">
@@ -26,7 +58,9 @@ export default function ProfileStyleCard({ user }) {
           <span className="profile-style-card__row-label">Рамка</span>
           <span className="profile-style-card__row-value">
             {user.avatar_frame ? (
-              <span className={`profile-style-card__frame-dot ${frameClass}`} />
+              <AvatarFrame frame={user.avatar_frame}>
+                <span className="profile-style-card__frame-dot" />
+              </AvatarFrame>
             ) : null}
             {user.avatar_frame || "не выбрана"}
           </span>
@@ -71,6 +105,47 @@ export default function ProfileStyleCard({ user }) {
           <span className="profile-style-card__row-value">{themeName || "не выбрана"}</span>
         </li>
       </ul>
+
+      {ownedFrames && ownedFrames.length > 0 && (
+        <div className="profile-style-card__frames">
+          <span className="profile-style-card__frames-label">Твои рамки — выбери активную</span>
+          <div className="profile-style-card__frames-grid">
+            <button
+              type="button"
+              className={!user.avatar_frame ? "profile-frame-option is-active" : "profile-frame-option"}
+              disabled={busy}
+              onClick={() => equipFrame(null)}
+              title="Без рамки"
+            >
+              <Avatar name={user.display_name || "Б"} size="xs" shape="circle" />
+              <small>Без рамки</small>
+              {!user.avatar_frame && <Check size={12} strokeWidth={3} className="profile-frame-option__check" aria-hidden="true" />}
+              {equippingId === null && <span className="profile-frame-option__spinner" aria-hidden="true" />}
+            </button>
+            {ownedFrames.map((item) => {
+              const active = user.avatar_frame === item.css_value;
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={active ? "profile-frame-option is-active" : "profile-frame-option"}
+                  disabled={busy}
+                  onClick={() => equipFrame(item.id)}
+                  title={item.name}
+                >
+                  <AvatarFrame frame={item.css_value}>
+                    <Avatar name={user.display_name || "Б"} size="xs" shape="circle" />
+                  </AvatarFrame>
+                  <small>{item.name}</small>
+                  {active && <Check size={12} strokeWidth={3} className="profile-frame-option__check" aria-hidden="true" />}
+                  {equippingId === item.id && <span className="profile-frame-option__spinner" aria-hidden="true" />}
+                </button>
+              );
+            })}
+          </div>
+          {actionError && <p className="profile-style-card__frames-error">{actionError}</p>}
+        </div>
+      )}
 
       <a className="bt-button bt-button--primary bt-button--sm profile-style-card__cta" href="/?preview=shop-premium">
         <span className="bt-button__label">Открыть Shop Premium</span>

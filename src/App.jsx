@@ -35,6 +35,7 @@ import AIChatPremiumView from "./features/ai-chat-premium/AIChatPremiumView.jsx"
 import GalleryPremiumView from "./features/gallery-premium/GalleryPremiumView.jsx";
 import ShopPremiumView from "./features/shop-premium/ShopPremiumView.jsx";
 import ProfilePremiumView from "./features/profile-premium/ProfilePremiumView.jsx";
+import AvatarFrame from "./components/ui/AvatarFrame.jsx";
 
 const NAV_ITEMS = [
   { id: "home", label: "Главная", icon: "✦" },
@@ -197,7 +198,19 @@ export default function App() {
     return <AuthScreen onAuthed={handleAuthed} />;
   }
 
-  const navItems = user.is_moderator
+  // Бэкенд отдаёт права двумя способами: устаревшими булевыми флагами
+  // is_admin/is_moderator и актуальным полем role (см. AdminUserUpdateRequest
+  // в OpenAPI — там только role, без булевых флагов). Иногда /api/me отдаёт
+  // не все поля сразу, поэтому проверяем оба варианта одновременно, чтобы
+  // админка не пропадала из-за рассинхронизации полей.
+  const canAccessAdmin =
+    Boolean(user?.is_admin) ||
+    Boolean(user?.is_moderator) ||
+    user?.role === "admin" ||
+    user?.role === "moderator";
+  const isFullAdmin = Boolean(user?.is_admin) || user?.role === "admin";
+
+  const navItems = canAccessAdmin
     ? [...NAV_ITEMS, { id: "admin", label: "Админка", icon: "🛠" }]
     : NAV_ITEMS;
 
@@ -286,7 +299,7 @@ export default function App() {
             : <GalleryPremiumView isAdmin={user.is_moderator} />
         )}
         {activeTab === "rooms" && <RoomsView />}
-        {activeTab === "admin" && user.is_moderator && <AdminView isAdmin={user.is_admin} />}
+        {activeTab === "admin" && canAccessAdmin && <AdminView isAdmin={isFullAdmin} />}
         {activeTab === "whatsnew" && <WhatsNewView isAdmin={user.is_admin} />}
         {activeTab === "account" && (
           isLegacyPreview ? (
@@ -531,11 +544,6 @@ function LevelBadge({ level }) {
       ● Ур.{level}
     </span>
   );
-}
-
-function AvatarFrame({ frame, children }) {
-  if (!frame) return children;
-  return <span className={`avatar-frame avatar-frame-${frame}`}>{children}</span>;
 }
 
 function CustomBadge({ badge }) {
@@ -2010,13 +2018,15 @@ function GalleryView({ isAdmin }) {
               {post.content.length > 220 ? post.content.slice(0, 220) + "…" : post.content}
             </p>
             <div className="inline-actions" style={{ marginTop: 8 }}>
-              {post.author_avatar ? (
-                <img
-                  src={post.author_avatar}
-                  alt=""
-                  style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }}
-                />
-              ) : null}
+              <AvatarFrame frame={post.author_avatar_frame}>
+                {post.author_avatar ? (
+                  <img
+                    src={post.author_avatar}
+                    alt=""
+                    style={{ width: 22, height: 22, borderRadius: "50%", objectFit: "cover" }}
+                  />
+                ) : null}
+              </AvatarFrame>
               <span
                 className="empty-hint clickable-name"
                 style={{ fontSize: 13 }}
@@ -2130,13 +2140,15 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
         <>
           <div className="result-card">
             <div className="inline-actions" style={{ marginBottom: 6 }}>
-              {post.author_avatar ? (
-                <img
-                  src={post.author_avatar}
-                  alt=""
-                  style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover" }}
-                />
-              ) : null}
+              <AvatarFrame frame={post.author_avatar_frame}>
+                {post.author_avatar ? (
+                  <img
+                    src={post.author_avatar}
+                    alt=""
+                    style={{ width: 26, height: 26, borderRadius: "50%", objectFit: "cover" }}
+                  />
+                ) : null}
+              </AvatarFrame>
               <p
                 className="result-label clickable-name"
                 style={{ margin: 0 }}
@@ -2169,13 +2181,15 @@ function GalleryPostDetail({ postId, onBack, isAdmin }) {
             {post.comments.length === 0 && <p className="empty-hint">Пока нет комментариев.</p>}
             {post.comments.map((c) => (
               <div key={c.id} className="fav-item">
-                {c.author_avatar ? (
-                  <img
-                    src={c.author_avatar}
-                    alt=""
-                    style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                  />
-                ) : null}
+                <AvatarFrame frame={c.author_avatar_frame}>
+                  {c.author_avatar ? (
+                    <img
+                      src={c.author_avatar}
+                      alt=""
+                      style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                    />
+                  ) : null}
+                </AvatarFrame>
                 <div style={{ flex: 1 }}>
                   <p className="result-label" style={{ marginBottom: 4 }}>
                     <span className="clickable-name" onClick={() => openProfile(c.author_id)}>
@@ -2702,23 +2716,25 @@ function ChatWidget({ isAdmin, isMobile, currentUserId }) {
                     : "chat-widget-msg"
                 }
               >
-                {m.author_avatar ? (
-                  <img
-                    src={m.author_avatar}
-                    alt=""
-                    className="chat-widget-avatar"
-                    onClick={() => openProfile(m.author_id)}
-                    style={{ cursor: "pointer" }}
-                  />
-                ) : (
-                  <span
-                    className="chat-widget-avatar-fallback"
-                    onClick={() => openProfile(m.author_id)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    {m.author?.[0]?.toUpperCase()}
-                  </span>
-                )}
+                <AvatarFrame frame={m.author_avatar_frame}>
+                  {m.author_avatar ? (
+                    <img
+                      src={m.author_avatar}
+                      alt=""
+                      className="chat-widget-avatar"
+                      onClick={() => openProfile(m.author_id)}
+                      style={{ cursor: "pointer" }}
+                    />
+                  ) : (
+                    <span
+                      className="chat-widget-avatar-fallback"
+                      onClick={() => openProfile(m.author_id)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {m.author?.[0]?.toUpperCase()}
+                    </span>
+                  )}
+                </AvatarFrame>
                 <div style={{ minWidth: 0 }}>
                   <p className="chat-widget-author">
                     <span className="clickable-name" onClick={() => openProfile(m.author_id)}>
@@ -3060,10 +3076,15 @@ function adminRoleLabel(user) {
 
 function AdminAvatar({ user, size = "md" }) {
   const initial = (user.name || user.email || "П").trim()[0]?.toUpperCase();
-  if (user.avatar) {
-    return <img className={`admin-avatar ${size}`} src={user.avatar} alt="" />;
-  }
-  return <span className={`admin-avatar admin-avatar-fallback ${size}`}>{initial}</span>;
+  return (
+    <AvatarFrame frame={user.avatar_frame}>
+      {user.avatar ? (
+        <img className={`admin-avatar ${size}`} src={user.avatar} alt="" />
+      ) : (
+        <span className={`admin-avatar admin-avatar-fallback ${size}`}>{initial}</span>
+      )}
+    </AvatarFrame>
+  );
 }
 
 function AdminMetric({ icon: Icon, label, value, note, tone = "default" }) {
@@ -3671,6 +3692,21 @@ function AdminUserEditor({ onChanged }) {
               )}
             </div>
 
+            <div className="admin-form-section">
+              <span className="admin-form-label">Рамка аватара</span>
+              <div className="admin-frame-preview">
+                <AvatarFrame frame={selected.avatar_frame}>
+                  <AdminAvatar user={selected} size="lg" />
+                </AvatarFrame>
+                <span>{selected.avatar_frame || "рамка не выбрана"}</span>
+              </div>
+              <p className="admin-frame-hint">
+                Рамку пользователь выбирает сам во вкладке «Моя коллекция» после того, как заявка на покупку
+                подтверждена здесь, в «Заявки магазина». Прямое назначение рамки администратором сейчас не
+                поддерживается бэкендом.
+              </p>
+            </div>
+
             {selected.can_manage_roles && (
               <div className="admin-form-section">
                 <span className="admin-form-label">Роль</span>
@@ -4018,13 +4054,15 @@ function RoomDetail({ code, onBack }) {
       <div className="chip-row">
         {room.participants.map((p) => (
           <span key={p.id} className="chip" style={{ cursor: "pointer" }} onClick={() => openProfile(p.id)}>
-            {p.avatar ? (
-              <img
-                src={p.avatar}
-                alt=""
-                style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover", marginRight: 4, verticalAlign: "middle" }}
-              />
-            ) : null}
+            <AvatarFrame frame={p.avatar_frame}>
+              {p.avatar ? (
+                <img
+                  src={p.avatar}
+                  alt=""
+                  style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover", marginRight: 4, verticalAlign: "middle" }}
+                />
+              ) : null}
+            </AvatarFrame>
             {p.is_me ? "Ты" : p.name} <LevelBadge level={p.level} /> <CustomBadge badge={p.badge} />
           </span>
         ))}
@@ -4552,15 +4590,17 @@ function PublicGalleryPostPage({ postId, loggedIn }) {
           <>
             <div className="result-card">
               <div className="inline-actions" style={{ marginBottom: 8 }}>
-                {post.author_avatar ? (
-                  <img
-                    src={post.author_avatar}
-                    alt=""
-                    style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
-                  />
-                ) : (
-                  <span className="user-avatar">{post.author[0]?.toUpperCase()}</span>
-                )}
+                <AvatarFrame frame={post.author_avatar_frame}>
+                  {post.author_avatar ? (
+                    <img
+                      src={post.author_avatar}
+                      alt=""
+                      style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <span className="user-avatar">{post.author[0]?.toUpperCase()}</span>
+                  )}
+                </AvatarFrame>
                 <span style={{ fontWeight: 700 }}>{post.author}</span>
                 <LevelBadge level={post.author_level} />
               </div>

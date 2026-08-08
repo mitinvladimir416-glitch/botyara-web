@@ -1,12 +1,12 @@
 import { Flame, UserRound } from "lucide-react";
 import Avatar from "../../components/ui/Avatar.jsx";
+import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import GlassCard from "../../components/ui/GlassCard.jsx";
 
 export default function ProfileHero({ user }) {
   const displayName =
     user.display_name || user.telegram_first_name || user.email?.split("@")[0] || "Ботяра";
-  const frameClass = user.avatar_frame ? `avatar-frame avatar-frame-${user.avatar_frame}` : "avatar-frame";
 
   return (
     <header className="profile-premium-hero">
@@ -17,7 +17,7 @@ export default function ProfileHero({ user }) {
         </span>
 
         <div className="profile-premium-hero__identity">
-          <span className={frameClass}>
+          <AvatarFrame frame={user.avatar_frame}>
             <Avatar
               src={user.avatar_base64}
               name={displayName}
@@ -25,7 +25,7 @@ export default function ProfileHero({ user }) {
               size="xl"
               shape="squircle"
             />
-          </span>
+          </AvatarFrame>
 
           <div className="profile-premium-hero__identity-copy">
             <strong style={user.name_color ? { color: user.name_color } : undefined}>{displayName}</strong>

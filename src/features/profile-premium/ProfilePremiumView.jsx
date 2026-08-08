@@ -49,7 +49,7 @@ export default function ProfilePremiumView({ user, onUserUpdate, onLogout, viewM
           <div className="profile-premium-dashboard">
             <div className="profile-premium-dashboard__row">
               <ProfileLevelCard user={user} />
-              <ProfileStyleCard user={user} />
+              <ProfileStyleCard user={user} onUserUpdate={onUserUpdate} />
             </div>
 
             <ProfileAchievements achievements={achievements} loading={achievements === null && !achievementsError} error={achievementsError} />

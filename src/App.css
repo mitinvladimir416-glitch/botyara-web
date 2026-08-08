@@ -2320,6 +2320,17 @@ textarea::placeholder {
 }
 .admin-badge-preview > span { color: var(--text-muted); font-size: 9px; text-transform: uppercase; }
 .admin-badge-preview > strong { margin-left: auto; font-size: 11px; }
+.admin-frame-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.admin-frame-preview > span { font-size: 11px; color: var(--text-secondary); }
+.admin-frame-hint { margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; color: var(--text-muted); }
 .admin-role-control { width: max-content; }
 .admin-ban-row {
   display: flex;
@@ -2784,10 +2795,177 @@ textarea::placeholder {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
+
+/* Доп. рамки — базовая серия каталога (frame_magenta/cyber/toxic/danger) */
+.avatar-frame-magenta::before { background: linear-gradient(135deg, #e879f9, #a855f7); box-shadow: 0 0 12px rgba(232, 121, 249, 0.5); }
+.avatar-frame-cyber::before { background: linear-gradient(135deg, #22d3ee, #0891b2); box-shadow: 0 0 12px rgba(34, 211, 238, 0.5); }
+.avatar-frame-toxic::before { background: linear-gradient(135deg, #a3e635, #16a34a); box-shadow: 0 0 12px rgba(163, 230, 53, 0.45); }
+.avatar-frame-danger::before { background: linear-gradient(135deg, #f87171, #b91c1c); box-shadow: 0 0 10px rgba(248, 113, 113, 0.45); }
+
+/* Музыкальные жанры (frame_music_*) */
+.avatar-frame-music-rock::before { background: linear-gradient(135deg, #94a3b8, #1e293b); }
+.avatar-frame-music-hiphop::before { background: linear-gradient(135deg, #facc15, #18181b); }
+.avatar-frame-music-rap::before { background: linear-gradient(135deg, #c084fc, #18181b); }
+.avatar-frame-music-blues::before { background: linear-gradient(135deg, #60a5fa, #1e3a8a); }
+.avatar-frame-music-jazz::before { background: linear-gradient(135deg, #fbbf24, #7c2d12); }
+.avatar-frame-music-classical::before { background: linear-gradient(135deg, #fef3c7, #b45309); }
+.avatar-frame-music-electronic::before {
+  background: linear-gradient(135deg, #22d3ee, #d946ef);
+  background-size: 300% 300%;
+  animation: frameShift 3s ease infinite;
+}
+.avatar-frame-music-metal::before { background: linear-gradient(135deg, #cbd5e1, #27272a); box-shadow: 0 0 8px rgba(203, 213, 225, 0.35); }
+.avatar-frame-music-reggae::before { background: linear-gradient(135deg, #4ade80, #facc15 50%, #ef4444); }
+.avatar-frame-music-country::before { background: linear-gradient(135deg, #d97706, #78350f); }
+
+/* Уровни/прогресс — от новичка (простой цвет) до легенды (анимация+свечение) */
+.avatar-frame-level-novice::before { background: linear-gradient(135deg, #86efac, #16a34a); }
+.avatar-frame-level-student::before { background: linear-gradient(135deg, #7dd3fc, #0284c7); }
+.avatar-frame-level-active::before { background: linear-gradient(135deg, #fdba74, #ea580c); }
+.avatar-frame-level-explorer::before { background: linear-gradient(135deg, #5eead4, #0d9488); }
+.avatar-frame-level-curious::before { background: linear-gradient(135deg, #d8b4fe, #7e22ce); }
+.avatar-frame-level-observer::before { background: linear-gradient(135deg, #6ee7b7, #047857); box-shadow: 0 0 10px rgba(110, 231, 183, 0.4); }
+.avatar-frame-level-enthusiast::before { background: linear-gradient(135deg, #fde047, #ca8a04); box-shadow: 0 0 10px rgba(253, 224, 71, 0.4); }
+.avatar-frame-level-creator::before {
+  background: linear-gradient(135deg, #c4b5fd, #6d28d9);
+  background-size: 300% 300%;
+  animation: frameShift 4s ease infinite;
+}
+.avatar-frame-level-analyst::before { background: linear-gradient(135deg, #93c5fd, #1d4ed8); box-shadow: 0 0 10px rgba(147, 197, 253, 0.35); }
+.avatar-frame-level-ai-explorer::before {
+  background: linear-gradient(135deg, #67e8f9, #0e7490);
+  background-size: 300% 300%;
+  animation: frameShift 3.5s ease infinite;
+  box-shadow: 0 0 12px rgba(103, 232, 249, 0.45);
+}
+.avatar-frame-level-pioneer::before {
+  background: linear-gradient(135deg, #fb923c, #dc2626);
+  background-size: 300% 300%;
+  animation: frameShift 3s ease infinite;
+  box-shadow: 0 0 14px rgba(251, 146, 60, 0.5);
+}
+.avatar-frame-level-master::before {
+  background: linear-gradient(135deg, #e0f2fe, #38bdf8, #e0f2fe);
+  background-size: 300% 300%;
+  animation: frameShift 3s ease infinite;
+  box-shadow: 0 0 16px rgba(224, 242, 254, 0.55);
+}
+.avatar-frame-level-visionary::before {
+  background: linear-gradient(135deg, #ddd6fe, #8b5cf6, #ddd6fe);
+  background-size: 300% 300%;
+  animation: frameShift 3.5s ease infinite;
+  box-shadow: 0 0 18px rgba(139, 92, 246, 0.55);
+}
+.avatar-frame-level-legend::before,
+.avatar-frame-legend::before {
+  background: linear-gradient(135deg, #fde68a, #f59e0b, #fb7185, #f59e0b, #fde68a);
+  background-size: 300% 300%;
+  animation: frameShift 2.5s ease infinite;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+}
+.avatar-frame-level-ai-lord::before {
+  background: linear-gradient(135deg, #f87171, #facc15, #4ade80, #22d3ee, #a78bfa, #f472b6);
+  background-size: 300% 300%;
+  animation: frameShift 2s ease infinite;
+  box-shadow: 0 0 22px rgba(167, 139, 250, 0.6);
+}
+
+/* Неоновая серия (frame_neon_*) — общий пульсирующий glow через CSS-переменную */
+@keyframes frameNeonPulse {
+  0%, 100% { box-shadow: 0 0 8px var(--frame-glow, rgba(255, 255, 255, 0.5)); }
+  50% { box-shadow: 0 0 18px var(--frame-glow, rgba(255, 255, 255, 0.8)); }
+}
+.avatar-frame-neon-magenta-square::before,
+.avatar-frame-neon-magenta-round::before {
+  background: linear-gradient(135deg, #f0abfc, #d946ef);
+  --frame-glow: rgba(217, 70, 239, 0.6);
+  animation: frameNeonPulse 2s ease-in-out infinite;
+}
+.avatar-frame-neon-cyan-square::before,
+.avatar-frame-neon-cyan-round::before {
+  background: linear-gradient(135deg, #67e8f9, #06b6d4);
+  --frame-glow: rgba(6, 182, 212, 0.6);
+  animation: frameNeonPulse 2s ease-in-out infinite;
+}
+.avatar-frame-neon-danger::before {
+  background: linear-gradient(135deg, #fca5a5, #dc2626);
+  --frame-glow: rgba(220, 38, 38, 0.6);
+  animation: frameNeonPulse 1.6s ease-in-out infinite;
+}
+.avatar-frame-neon-violet-square::before {
+  background: linear-gradient(135deg, #c4b5fd, #7c3aed);
+  --frame-glow: rgba(124, 58, 237, 0.6);
+  animation: frameNeonPulse 2.2s ease-in-out infinite;
+}
+.avatar-frame-neon-pink-square::before {
+  background: linear-gradient(135deg, #fbcfe8, #ec4899);
+  --frame-glow: rgba(236, 72, 153, 0.6);
+  animation: frameNeonPulse 2s ease-in-out infinite;
+}
+.avatar-frame-neon-orange-round::before {
+  background: linear-gradient(135deg, #fed7aa, #f97316);
+  --frame-glow: rgba(249, 115, 22, 0.6);
+  animation: frameNeonPulse 2.4s ease-in-out infinite;
+}
+.avatar-frame-neon-toxic::before {
+  background: linear-gradient(135deg, #bef264, #65a30d);
+  --frame-glow: rgba(101, 163, 13, 0.6);
+  animation: frameNeonPulse 1.8s ease-in-out infinite;
+}
+.avatar-frame-neon-blue-square::before {
+  background: linear-gradient(135deg, #93c5fd, #2563eb);
+  --frame-glow: rgba(37, 99, 235, 0.6);
+  animation: frameNeonPulse 2.2s ease-in-out infinite;
+}
+
+/* Доп. имена первого релиза без отдельной позиции в каталоге сейчас —
+   рамка сработает сама, если бэкенд начнёт отдавать avatar_frame с таким
+   значением (совместимость на будущее, ничего не ломает сегодня). */
+.avatar-frame-neon::before {
+  background: linear-gradient(135deg, #c4b5fd, #7c3aed);
+  --frame-glow: rgba(124, 58, 237, 0.6);
+  animation: frameNeonPulse 2.2s ease-in-out infinite;
+}
+.avatar-frame-electric::before { background: linear-gradient(135deg, #facc15, #a3e635); box-shadow: 0 0 10px rgba(250, 204, 21, 0.45); }
+.avatar-frame-ice::before {
+  background: linear-gradient(135deg, #e0f2fe, #7dd3fc, #e0f2fe);
+  background-size: 300% 300%;
+  animation: frameShift 3s ease infinite;
+  box-shadow: 0 0 14px rgba(125, 211, 252, 0.5);
+}
+.avatar-frame-galaxy::before {
+  background: linear-gradient(135deg, #1e1b4b, #7c3aed, #db2777, #1e1b4b);
+  background-size: 300% 300%;
+  animation: frameShift 5s ease infinite;
+  box-shadow: 0 0 16px rgba(124, 58, 237, 0.45);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .avatar-frame-rainbow::before,
   .avatar-frame-stardust::before,
-  .avatar-frame-crystal::before {
+  .avatar-frame-crystal::before,
+  .avatar-frame-music-electronic::before,
+  .avatar-frame-level-creator::before,
+  .avatar-frame-level-ai-explorer::before,
+  .avatar-frame-level-pioneer::before,
+  .avatar-frame-level-master::before,
+  .avatar-frame-level-visionary::before,
+  .avatar-frame-level-legend::before,
+  .avatar-frame-legend::before,
+  .avatar-frame-level-ai-lord::before,
+  .avatar-frame-neon-magenta-square::before,
+  .avatar-frame-neon-magenta-round::before,
+  .avatar-frame-neon-cyan-square::before,
+  .avatar-frame-neon-cyan-round::before,
+  .avatar-frame-neon-danger::before,
+  .avatar-frame-neon-violet-square::before,
+  .avatar-frame-neon-pink-square::before,
+  .avatar-frame-neon-orange-round::before,
+  .avatar-frame-neon-toxic::before,
+  .avatar-frame-neon-blue-square::before,
+  .avatar-frame-neon::before,
+  .avatar-frame-ice::before,
+  .avatar-frame-galaxy::before {
     animation: none;
   }
 }

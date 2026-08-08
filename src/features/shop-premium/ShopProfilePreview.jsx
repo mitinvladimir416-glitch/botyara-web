@@ -1,5 +1,6 @@
 import { RotateCcw, Sparkles } from "lucide-react";
 import Avatar from "../../components/ui/Avatar.jsx";
+import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import GlassCard from "../../components/ui/GlassCard.jsx";
 import PremiumButton from "../../components/ui/PremiumButton.jsx";
@@ -26,8 +27,10 @@ export default function ShopProfilePreview({ user, tryOnItem, onClearTryOn, onBu
         {tryOnItem ? "Примерка" : "Твой образ"}
       </span>
 
-      <div className={frameValue ? `shop-premium-preview__avatar avatar-frame avatar-frame-${frameValue}` : "shop-premium-preview__avatar"}>
-        <Avatar src={user.avatar_base64} name={displayName} alt={`Аватар ${displayName}`} size="xl" shape="squircle" />
+      <div className="shop-premium-preview__avatar">
+        <AvatarFrame frame={frameValue}>
+          <Avatar src={user.avatar_base64} name={displayName} alt={`Аватар ${displayName}`} size="xl" shape="squircle" />
+        </AvatarFrame>
       </div>
 
       <strong className="shop-premium-preview__name" style={colorValue ? { color: colorValue } : undefined}>

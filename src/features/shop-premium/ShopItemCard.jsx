@@ -1,5 +1,6 @@
 import { CheckCircle2, Clock3, Eye, Zap } from "lucide-react";
 import Avatar from "../../components/ui/Avatar.jsx";
+import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
 import PremiumButton from "../../components/ui/PremiumButton.jsx";
 import { categoryFor, isConsumable } from "./shopCategories.js";
 
@@ -8,8 +9,10 @@ function ItemPreview({ item }) {
 
   if (item.category === "frame") {
     return (
-      <span className={`shop-item-swatch shop-item-swatch--frame avatar-frame avatar-frame-${item.css_value}`}>
-        <Avatar name={item.name} size="sm" shape="circle" />
+      <span className="shop-item-swatch shop-item-swatch--frame">
+        <AvatarFrame frame={item.css_value}>
+          <Avatar name={item.name} size="sm" shape="circle" />
+        </AvatarFrame>
       </span>
     );
   }

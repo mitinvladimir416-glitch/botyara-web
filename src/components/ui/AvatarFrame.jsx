@@ -1,16 +1,19 @@
 import { forwardRef } from "react";
 
+// Единый компонент рамки аватара — driven by user.avatar_frame / item.css_value
+// (значения каталога магазина, например "fire", "level-legend", "neon-cyan-round").
+// CSS-классы .avatar-frame / .avatar-frame-<value> определены в App.css.
 const AvatarFrame = forwardRef(function AvatarFrame(
-  { children, className = "", variant = "premium", label, ...props },
+  { frame, children, className = "", label, ...props },
   ref
 ) {
-  const classes = ["bt-avatar-frame", `bt-avatar-frame--${variant}`, className]
-    .filter(Boolean)
-    .join(" ");
+  if (!frame) return children;
+
+  const classes = ["avatar-frame", `avatar-frame-${frame}`, className].filter(Boolean).join(" ");
 
   return (
     <span ref={ref} className={classes} data-bt-ui aria-label={label} {...props}>
-      <span className="bt-avatar-frame__core">{children}</span>
+      {children}
     </span>
   );
 });

@@ -15,7 +15,7 @@ export default function UserLevelCard({ user, displayName, achievementCount, onO
     <GlassCard className="premium-home-level" tone="elevated" padding="none">
       <button className="premium-home-level__identity" type="button" onClick={onOpenProfile}>
         <span className="premium-home-level__avatar">
-          <AvatarFrame label="Открыть профиль">
+          <AvatarFrame frame={user.avatar_frame} label="Открыть профиль">
             <Avatar
               src={user.avatar_base64 || ""}
               alt={displayName}
