@@ -72,6 +72,20 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(() =>
     new URLSearchParams(window.location.search).get("room") ? "rooms" : "home"
   );
+  // ?preview=X читается один раз при заходе по прямой ссылке (см. эффект ниже,
+  // который сразу убирает параметр из URL) и сбрасывается при любом реальном
+  // переходе по навигации (см. handleNavigate) — иначе, один раз попав по
+  // ссылке вида /?preview=shop-premium, пользователь навсегда видел бы магазин
+  // вместо "Главной", потому что флаг раньше вычислялся заново на каждый рендер.
+  const [previewMode, setPreviewMode] = useState(
+    () => new URLSearchParams(window.location.search).get("preview")
+  );
+  useEffect(() => {
+    if (!previewMode) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("preview");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Ручной выбор вида живёт только в рамках вкладки (sessionStorage), а не навсегда —
   // иначе один тап по "Версия для ПК" на телефоне залипал бы на всех будущих визитах.
   const [viewMode, setViewMode] = useState(() => {
@@ -169,22 +183,22 @@ export default function App() {
     setUser(null);
   };
 
+  // Любой реальный переход по навигации гасит унаследованный ?preview=X —
+  // иначе клик по "Главная" продолжал бы показывать зафиксированный preview.
+  function handleNavigate(tabId) {
+    setPreviewMode(null);
+    setActiveTab(tabId);
+  }
+
   const publicGalleryMatch = window.location.pathname.match(/^\/gallery\/(\d+)/);
-  const isHomePremiumPreview =
-    new URLSearchParams(window.location.search).get("preview") === "home-premium";
-  const isPromptsPremiumPreview =
-    new URLSearchParams(window.location.search).get("preview") === "prompts-premium";
-  const isChatPremiumPreview =
-    new URLSearchParams(window.location.search).get("preview") === "chat-premium";
-  const isGalleryPremiumPreview =
-    new URLSearchParams(window.location.search).get("preview") === "gallery-premium";
-  const isShopPremiumPreview =
-    new URLSearchParams(window.location.search).get("preview") === "shop-premium";
-  const isProfilePremiumPreview =
-    new URLSearchParams(window.location.search).get("preview") === "profile-premium";
+  const isHomePremiumPreview = previewMode === "home-premium";
+  const isPromptsPremiumPreview = previewMode === "prompts-premium";
+  const isChatPremiumPreview = previewMode === "chat-premium";
+  const isGalleryPremiumPreview = previewMode === "gallery-premium";
+  const isShopPremiumPreview = previewMode === "shop-premium";
+  const isProfilePremiumPreview = previewMode === "profile-premium";
   // Аварийный откат ко всем legacy-разделам разом, без деплоя: ?preview=legacy
-  const isLegacyPreview =
-    new URLSearchParams(window.location.search).get("preview") === "legacy";
+  const isLegacyPreview = previewMode === "legacy";
   if (publicGalleryMatch) {
     return <PublicGalleryPostPage postId={publicGalleryMatch[1]} loggedIn={!!getToken()} />;
   }
@@ -239,12 +253,12 @@ export default function App() {
     <AppShell
       active={shellActive}
       navItems={navItems}
-      onNavigate={setActiveTab}
+      onNavigate={handleNavigate}
       user={user}
       viewMode={viewMode}
       sidebar={<Sidebar
         active={shellActive}
-        onChange={setActiveTab}
+        onChange={handleNavigate}
         user={user}
         onLogout={handleLogout}
         viewMode={viewMode}
@@ -279,7 +293,7 @@ export default function App() {
             : isGalleryPremiumPreview
             ? <GalleryPremiumView isAdmin={user.is_moderator} />
             : isShopPremiumPreview
-            ? <ShopPremiumView user={user} />
+            ? <ShopPremiumView user={user} onUserUpdate={setUser} />
             : isProfilePremiumPreview
             ? (
               <ProfilePremiumView
@@ -291,10 +305,10 @@ export default function App() {
               />
             )
             : isHomePremiumPreview
-            ? <PremiumHomeView user={user} onNavigate={setActiveTab} />
+            ? <PremiumHomeView user={user} onNavigate={handleNavigate} />
             : isLegacyPreview
-            ? <HomeView user={user} onNavigate={setActiveTab} />
-            : <PremiumHomeView user={user} onNavigate={setActiveTab} />
+            ? <HomeView user={user} onNavigate={handleNavigate} />
+            : <PremiumHomeView user={user} onNavigate={handleNavigate} />
         )}
         {activeTab === "chat" && (isLegacyPreview ? <ChatView /> : <AIChatPremiumView />)}
         {activeTab === "translate" && <TranslateView />}

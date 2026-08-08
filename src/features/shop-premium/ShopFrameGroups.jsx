@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Crown, Sparkles, Wand2, Zap } from "lucide-react";
+import { ChevronDown, Crown, LayoutGrid, Sparkles, Wand2, Zap } from "lucide-react";
 import ShopItemCard from "./ShopItemCard.jsx";
 
 // Рамки — самая большая категория каталога (47+ штук), поэтому внутри неё
@@ -32,23 +32,13 @@ export function frameTier(item) {
   return "basic";
 }
 
-function FrameGroup({ tierKey, items, statusFor, purchasesEnabled, buyingId, onBuy, onTryOn }) {
+function FrameCards({ items, forceShowAll, statusFor, appearance, purchasesEnabled }) {
   const [expanded, setExpanded] = useState(false);
-  const meta = TIER_META[tierKey];
-  const hasMore = items.length > PREVIEW_COUNT;
-  const visible = expanded ? items : items.slice(0, PREVIEW_COUNT);
+  const hasMore = !forceShowAll && items.length > PREVIEW_COUNT;
+  const visible = forceShowAll || expanded ? items : items.slice(0, PREVIEW_COUNT);
 
   return (
-    <section className="shop-frame-group">
-      <header className="shop-frame-group__head">
-        <span className="shop-frame-group__title">
-          <meta.icon size={15} strokeWidth={1.8} aria-hidden="true" />
-          {meta.label}
-          <span className="shop-frame-group__count">{items.length}</span>
-        </span>
-        <span className="shop-frame-group__hint">{meta.hint}</span>
-      </header>
-
+    <>
       <div className="shop-premium-grid">
         {visible.map((item, index) => (
           <ShopItemCard
@@ -57,14 +47,13 @@ function FrameGroup({ tierKey, items, statusFor, purchasesEnabled, buyingId, onB
             index={index}
             mode="showcase"
             status={statusFor(item.id)}
+            isEquipped={appearance.isItemEquipped(item)}
+            isPreviewing={appearance.isItemPreviewing(item)}
             purchasesEnabled={purchasesEnabled}
-            busy={buyingId === item.id}
-            onBuy={onBuy}
-            onTryOn={onTryOn}
+            onPreview={appearance.previewItem}
           />
         ))}
       </div>
-
       {hasMore && (
         <button
           type="button"
@@ -75,11 +64,28 @@ function FrameGroup({ tierKey, items, statusFor, purchasesEnabled, buyingId, onB
           <ChevronDown size={14} strokeWidth={2.2} aria-hidden="true" />
         </button>
       )}
+    </>
+  );
+}
+
+function FrameGroup({ tierKey, items, ...rest }) {
+  const meta = TIER_META[tierKey];
+  return (
+    <section className="shop-frame-group">
+      <header className="shop-frame-group__head">
+        <span className="shop-frame-group__title">
+          <meta.icon size={15} strokeWidth={1.8} aria-hidden="true" />
+          {meta.label}
+          <span className="shop-frame-group__count">{items.length}</span>
+        </span>
+        <span className="shop-frame-group__hint">{meta.hint}</span>
+      </header>
+      <FrameCards items={items} {...rest} />
     </section>
   );
 }
 
-export default function ShopFrameGroups({ items, statusFor, purchasesEnabled, buyingId, onBuy, onTryOn }) {
+export default function ShopFrameGroups({ items, activeTier, onTierChange, statusFor, appearance, purchasesEnabled }) {
   const groups = new Map();
   for (const item of items) {
     const tier = frameTier(item);
@@ -93,18 +99,48 @@ export default function ShopFrameGroups({ items, statusFor, purchasesEnabled, bu
     return null;
   }
 
+  const tiersToRender = activeTier ? [activeTier].filter((tier) => groups.has(tier)) : populatedTiers;
+
   return (
     <div className="shop-frame-groups">
-      {populatedTiers.map((tierKey) => (
+      <div className="shop-premium-filters shop-tier-nav" role="tablist" aria-label="Категории рамок">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!activeTier}
+          className={!activeTier ? "is-active" : ""}
+          onClick={() => onTierChange(null)}
+        >
+          <LayoutGrid size={14} strokeWidth={1.8} aria-hidden="true" />
+          Все <span>{items.length}</span>
+        </button>
+        {populatedTiers.map((tierKey) => {
+          const meta = TIER_META[tierKey];
+          return (
+            <button
+              key={tierKey}
+              type="button"
+              role="tab"
+              aria-selected={activeTier === tierKey}
+              className={activeTier === tierKey ? "is-active" : ""}
+              onClick={() => onTierChange(tierKey)}
+            >
+              <meta.icon size={14} strokeWidth={1.8} aria-hidden="true" />
+              {meta.label} <span>{groups.get(tierKey).length}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {tiersToRender.map((tierKey) => (
         <FrameGroup
           key={tierKey}
           tierKey={tierKey}
           items={groups.get(tierKey)}
+          forceShowAll={Boolean(activeTier)}
           statusFor={statusFor}
+          appearance={appearance}
           purchasesEnabled={purchasesEnabled}
-          buyingId={buyingId}
-          onBuy={onBuy}
-          onTryOn={onTryOn}
         />
       ))}
     </div>

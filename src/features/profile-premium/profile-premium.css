@@ -584,6 +584,52 @@
   font-size: var(--bt-font-size-2xs);
 }
 
+.profile-style-card__preview-icon {
+  color: #c9affd;
+}
+
+.profile-style-card__apply-bar {
+  display: grid;
+  gap: var(--bt-space-2);
+  margin-top: var(--bt-space-1);
+  border-top: 1px solid var(--bt-color-border);
+  padding-top: var(--bt-space-3);
+}
+
+.profile-style-card__apply-bar > span {
+  overflow: hidden;
+  color: var(--bt-color-text-secondary);
+  font-size: var(--bt-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-style-card__apply-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--bt-space-2);
+}
+
+.profile-style-card__cancel {
+  display: grid;
+  width: 2rem;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.045);
+  color: var(--bt-color-text-secondary);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--bt-color-border);
+  transition: color var(--bt-duration-fast) var(--bt-ease-standard), background-color var(--bt-duration-fast) var(--bt-ease-standard);
+}
+
+.profile-style-card__cancel:hover {
+  background: var(--bt-color-accent-soft);
+  color: var(--bt-color-text-primary);
+}
+
 /* =========================================================
    ACHIEVEMENTS
    ========================================================= */

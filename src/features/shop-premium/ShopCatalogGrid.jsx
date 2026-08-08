@@ -1,7 +1,7 @@
 import { Store } from "lucide-react";
 import ShopItemCard from "./ShopItemCard.jsx";
 
-export default function ShopCatalogGrid({ items, loading, error, purchasesEnabled, statusFor, buyingId, onBuy, onTryOn }) {
+export default function ShopCatalogGrid({ items, loading, error, purchasesEnabled, statusFor, appearance }) {
   if (loading) {
     return (
       <div className="shop-premium-grid shop-premium-grid--loading" aria-hidden="true">
@@ -37,10 +37,10 @@ export default function ShopCatalogGrid({ items, loading, error, purchasesEnable
           index={index}
           mode="showcase"
           status={statusFor(item.id)}
+          isEquipped={appearance.isItemEquipped(item)}
+          isPreviewing={appearance.isItemPreviewing(item)}
           purchasesEnabled={purchasesEnabled}
-          busy={buyingId === item.id}
-          onBuy={onBuy}
-          onTryOn={onTryOn}
+          onPreview={appearance.previewItem}
         />
       ))}
     </div>

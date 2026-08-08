@@ -11,6 +11,7 @@ import ShopFrameGroups from "./ShopFrameGroups.jsx";
 import ShopCollectionsGrid from "./ShopCollectionsGrid.jsx";
 import ShopInventoryGrid from "./ShopInventoryGrid.jsx";
 import { groupByCollection } from "./shopCollections.js";
+import { useAppearancePreview } from "./useAppearancePreview.js";
 import "./shop-premium.css";
 
 const SHOP_TABS = [
@@ -19,7 +20,7 @@ const SHOP_TABS = [
   { id: "collection", label: "Моя коллекция", icon: Backpack },
 ];
 
-export default function ShopPremiumView({ user }) {
+export default function ShopPremiumView({ user, onUserUpdate }) {
   const [catalog, setCatalog] = useState(null);
   const [purchases, setPurchases] = useState([]);
   const [catalogError, setCatalogError] = useState("");
@@ -30,11 +31,12 @@ export default function ShopPremiumView({ user }) {
 
   const [activeShopTab, setActiveShopTab] = useState("showcase");
   const [activeCategory, setActiveCategory] = useState(null);
+  const [activeTier, setActiveTier] = useState(null);
 
-  const [tryOnItem, setTryOnItem] = useState(null);
   const [buyingId, setBuyingId] = useState(null);
-  const [equippingId, setEquippingId] = useState(null);
-  const [actionMsg, setActionMsg] = useState("");
+  const [buyMsg, setBuyMsg] = useState("");
+
+  const appearance = useAppearancePreview(user, onUserUpdate);
 
   const loadCatalog = useCallback(() => {
     setCatalogError("");
@@ -73,30 +75,17 @@ export default function ShopPremiumView({ user }) {
 
   async function buy(itemId) {
     setBuyingId(itemId);
-    setActionMsg("");
+    setBuyMsg("");
     try {
       await api.shopPurchase(itemId);
-      setActionMsg(
+      setBuyMsg(
         "Заявка отправлена! Напиши мне (кнопка «Связь со мной» в меню слева), чтобы оплатить — после оплаты сразу применю украшение на твой аккаунт."
       );
       loadCatalog();
     } catch (error) {
-      setActionMsg(`Ошибка: ${error.message}`);
+      setBuyMsg(`Ошибка: ${error.message}`);
     } finally {
       setBuyingId(null);
-    }
-  }
-
-  async function equip(item) {
-    setEquippingId(item.id);
-    setActionMsg("");
-    try {
-      await api.shopEquip(item.category, item.id);
-      loadInventory();
-    } catch (error) {
-      setActionMsg(`Ошибка: ${error.message}`);
-    } finally {
-      setEquippingId(null);
     }
   }
 
@@ -112,24 +101,21 @@ export default function ShopPremiumView({ user }) {
 
   const collectionGroups = useMemo(() => groupByCollection(catalog?.items), [catalog]);
 
-  const equippedKeys = useMemo(
-    () => ({
-      frame: user?.avatar_frame || null,
-      name_color: user?.name_color || null,
-      title: user?.badge?.text || null,
-    }),
-    [user]
-  );
+  function changeCategory(category) {
+    setActiveCategory(category);
+    setActiveTier(null);
+  }
 
   return (
     <div className="shop-premium">
+      <div className="shop-premium__glow" aria-hidden="true" />
       <ShopHero purchasesEnabled={catalog?.purchases_enabled} itemCount={catalog?.items?.length || 0} />
 
       <div className="shop-premium-workspace">
         <div className="shop-premium-main">
           <ShopTabs tabs={SHOP_TABS} active={activeShopTab} onChange={setActiveShopTab} />
 
-          {actionMsg && <p className="shop-premium-message">{actionMsg}</p>}
+          {buyMsg && <p className="shop-premium-message">{buyMsg}</p>}
 
           {activeShopTab === "showcase" && (
             <>
@@ -144,17 +130,17 @@ export default function ShopPremiumView({ user }) {
               <ShopFilters
                 categories={categories}
                 active={activeCategory}
-                onChange={setActiveCategory}
+                onChange={changeCategory}
                 totalCount={catalog?.items?.length || 0}
               />
               {activeCategory === "frame" && showcaseItems.length > 0 ? (
                 <ShopFrameGroups
                   items={showcaseItems}
+                  activeTier={activeTier}
+                  onTierChange={setActiveTier}
                   statusFor={statusFor}
+                  appearance={appearance}
                   purchasesEnabled={catalog?.purchases_enabled}
-                  buyingId={buyingId}
-                  onBuy={buy}
-                  onTryOn={setTryOnItem}
                 />
               ) : (
                 <ShopCatalogGrid
@@ -163,16 +149,14 @@ export default function ShopPremiumView({ user }) {
                   error={catalogError}
                   purchasesEnabled={catalog?.purchases_enabled}
                   statusFor={statusFor}
-                  buyingId={buyingId}
-                  onBuy={buy}
-                  onTryOn={setTryOnItem}
+                  appearance={appearance}
                 />
               )}
             </>
           )}
 
           {activeShopTab === "collections" && (
-            <ShopCollectionsGrid groups={collectionGroups} onTryOn={setTryOnItem} />
+            <ShopCollectionsGrid groups={collectionGroups} onTryOn={appearance.previewItem} />
           )}
 
           {activeShopTab === "collection" && (
@@ -180,25 +164,12 @@ export default function ShopPremiumView({ user }) {
               items={inventory}
               loading={inventoryLoading}
               error={inventoryError}
-              equippedKeys={equippedKeys}
-              equippingId={equippingId}
-              onEquip={equip}
-              onTryOn={setTryOnItem}
+              appearance={appearance}
             />
           )}
         </div>
 
-        <ShopProfilePreview
-          user={user}
-          tryOnItem={tryOnItem}
-          onClearTryOn={() => setTryOnItem(null)}
-          onBuy={buy}
-          onEquip={equip}
-          buyingId={buyingId}
-          equippingId={equippingId}
-          statusFor={statusFor}
-          equippedKeys={equippedKeys}
-        />
+        <ShopProfilePreview user={user} appearance={appearance} statusFor={statusFor} buyingId={buyingId} onBuy={buy} />
       </div>
     </div>
   );

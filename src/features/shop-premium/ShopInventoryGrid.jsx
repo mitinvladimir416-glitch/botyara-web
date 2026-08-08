@@ -1,12 +1,12 @@
 import { Backpack } from "lucide-react";
 import ShopItemCard from "./ShopItemCard.jsx";
-import { categoryFor, isItemEquipped } from "./shopCategories.js";
+import { categoryFor } from "./shopCategories.js";
 
 // Форма записи инвентаря не задокументирована бэкендом (api.shopInventory ещё
 // нигде не вызывался во фронтенде) — предполагаем те же поля, что и в
 // catalog.items (id, category, css_value, badge_text, ...).
 
-export default function ShopInventoryGrid({ items, loading, error, equippedKeys, equippingId, onEquip, onTryOn }) {
+export default function ShopInventoryGrid({ items, loading, error, appearance }) {
   if (loading) {
     return (
       <div className="shop-premium-grid shop-premium-grid--loading" aria-hidden="true">
@@ -57,10 +57,10 @@ export default function ShopInventoryGrid({ items, loading, error, equippedKeys,
                   item={item}
                   index={index}
                   mode="collection"
-                  isEquipped={isItemEquipped(item, equippedKeys)}
-                  busy={equippingId === item.id}
-                  onEquip={onEquip}
-                  onTryOn={onTryOn}
+                  status="fulfilled"
+                  isEquipped={appearance.isItemEquipped(item)}
+                  isPreviewing={appearance.isItemPreviewing(item)}
+                  onPreview={appearance.previewItem}
                 />
               ))}
             </div>

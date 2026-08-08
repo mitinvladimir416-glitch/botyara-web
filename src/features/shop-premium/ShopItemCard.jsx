@@ -1,8 +1,8 @@
 import { CheckCircle2, Clock3, Eye, Zap } from "lucide-react";
 import Avatar from "../../components/ui/Avatar.jsx";
 import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
-import PremiumButton from "../../components/ui/PremiumButton.jsx";
 import { categoryFor, isConsumable } from "./shopCategories.js";
+import { APPEARANCE_CATEGORY_CONFIG } from "./useAppearancePreview.js";
 
 function ItemPreview({ item }) {
   const meta = categoryFor(item.category);
@@ -55,18 +55,37 @@ export default function ShopItemCard({
   mode = "showcase",
   status,
   isEquipped,
+  isPreviewing,
   purchasesEnabled,
-  busy,
-  onBuy,
-  onEquip,
-  onTryOn,
+  onPreview,
   index = 0,
 }) {
   const meta = categoryFor(item.category);
-  const consumable = isConsumable(item);
+  const canPreview = Boolean(APPEARANCE_CATEGORY_CONFIG[item.category]) && Boolean(onPreview);
+
+  const cardClass = [
+    "shop-item-card",
+    isPreviewing && "is-previewing",
+    isEquipped && !isPreviewing && "is-equipped",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const swatch = (
+    <>
+      <ItemPreview item={item} />
+      <div className="shop-item-card__info">
+        <strong>{item.name}</strong>
+        <div className="shop-item-card__price">
+          <span>{item.price}₽</span>
+          {item.original_price ? <s>{item.original_price}₽</s> : null}
+        </div>
+      </div>
+    </>
+  );
 
   return (
-    <article className="shop-item-card" style={{ "--card-index": index }}>
+    <article className={cardClass} style={{ "--card-index": index }}>
       <div className="shop-item-card__head">
         <span className="shop-item-card__category">
           <meta.icon size={13} strokeWidth={1.8} />
@@ -75,61 +94,47 @@ export default function ShopItemCard({
         {item.discount_percent > 0 && <span className="shop-item-card__discount">-{item.discount_percent}%</span>}
       </div>
 
-      <ItemPreview item={item} />
-
-      <div className="shop-item-card__info">
-        <strong>{item.name}</strong>
-        <div className="shop-item-card__price">
-          <span>{item.price}₽</span>
-          {item.original_price ? <s>{item.original_price}₽</s> : null}
-        </div>
-      </div>
+      {canPreview ? (
+        <button
+          type="button"
+          className="shop-item-card__body"
+          onClick={() => onPreview(item)}
+          aria-pressed={isPreviewing}
+          title="Примерить"
+        >
+          {swatch}
+        </button>
+      ) : (
+        <div className="shop-item-card__body shop-item-card__body--static">{swatch}</div>
+      )}
 
       <footer className="shop-item-card__footer">
-        {mode === "showcase" ? (
-          <>
-            {!consumable && (
-              <button type="button" className="shop-item-card__tryon" onClick={() => onTryOn(item)} title="Примерить">
-                <Eye size={15} strokeWidth={1.8} />
-              </button>
-            )}
-            {status === "fulfilled" ? (
-              <span className="shop-item-card__status is-owned">
-                <CheckCircle2 size={14} strokeWidth={1.8} />
-                Куплено
-              </span>
-            ) : status === "pending" ? (
-              <span className="shop-item-card__status is-pending">
-                <Clock3 size={14} strokeWidth={1.8} />
-                Ждём оплату
-              </span>
-            ) : (
-              <PremiumButton
-                size="sm"
-                variant="secondary"
-                disabled={busy || purchasesEnabled === false}
-                onClick={() => onBuy(item.id)}
-              >
-                {busy ? "…" : "Купить"}
-              </PremiumButton>
-            )}
-          </>
-        ) : (
-          <>
-            <button type="button" className="shop-item-card__tryon" onClick={() => onTryOn(item)} title="Примерить">
-              <Eye size={15} strokeWidth={1.8} />
-            </button>
-            {isEquipped ? (
-              <span className="shop-item-card__status is-equipped">
-                <CheckCircle2 size={14} strokeWidth={1.8} />
-                Экипировано
-              </span>
-            ) : (
-              <PremiumButton size="sm" disabled={busy} onClick={() => onEquip(item)}>
-                {busy ? "…" : "Экипировать"}
-              </PremiumButton>
-            )}
-          </>
+        {isPreviewing && (
+          <span className="shop-item-card__status is-previewing">
+            <Eye size={14} strokeWidth={1.8} />
+            Примерка
+          </span>
+        )}
+        {isEquipped && !isPreviewing && (
+          <span className="shop-item-card__status is-equipped">
+            <CheckCircle2 size={14} strokeWidth={1.8} />
+            {mode === "showcase" ? "Используется" : "Экипировано"}
+          </span>
+        )}
+        {!isEquipped && !isPreviewing && status === "fulfilled" && (
+          <span className="shop-item-card__status is-owned">
+            <CheckCircle2 size={14} strokeWidth={1.8} />
+            Куплено
+          </span>
+        )}
+        {!isEquipped && !isPreviewing && status === "pending" && (
+          <span className="shop-item-card__status is-pending">
+            <Clock3 size={14} strokeWidth={1.8} />
+            Ждём оплату
+          </span>
+        )}
+        {!isEquipped && !isPreviewing && !status && purchasesEnabled === false && (
+          <span className="shop-item-card__status is-disabled">Покупки временно недоступны</span>
         )}
       </footer>
     </article>

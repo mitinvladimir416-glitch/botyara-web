@@ -8,6 +8,7 @@ import ProfileStyleCard from "./ProfileStyleCard.jsx";
 import ProfileAchievements from "./ProfileAchievements.jsx";
 import ProfileActivity from "./ProfileActivity.jsx";
 import ProfileSettings from "./ProfileSettings.jsx";
+import { useAppearancePreview } from "../shop-premium/useAppearancePreview.js";
 import "./profile-premium.css";
 
 const PROFILE_TABS = [
@@ -17,6 +18,7 @@ const PROFILE_TABS = [
 
 export default function ProfilePremiumView({ user, onUserUpdate, onLogout, viewMode, onToggleViewMode }) {
   const [activeProfileTab, setActiveProfileTab] = useState("profile");
+  const appearance = useAppearancePreview(user, onUserUpdate);
 
   const [achievements, setAchievements] = useState(null);
   const [achievementsError, setAchievementsError] = useState("");
@@ -40,7 +42,7 @@ export default function ProfilePremiumView({ user, onUserUpdate, onLogout, viewM
 
   return (
     <div className="profile-premium">
-      <ProfileHero user={user} />
+      <ProfileHero user={user} appearance={appearance} />
 
       <div className="profile-premium-workspace">
         <ProfileTabs tabs={PROFILE_TABS} active={activeProfileTab} onChange={setActiveProfileTab} />
@@ -49,7 +51,7 @@ export default function ProfilePremiumView({ user, onUserUpdate, onLogout, viewM
           <div className="profile-premium-dashboard">
             <div className="profile-premium-dashboard__row">
               <ProfileLevelCard user={user} />
-              <ProfileStyleCard user={user} onUserUpdate={onUserUpdate} />
+              <ProfileStyleCard user={user} appearance={appearance} />
             </div>
 
             <ProfileAchievements achievements={achievements} loading={achievements === null && !achievementsError} error={achievementsError} />

@@ -4,9 +4,12 @@ import AvatarFrame from "../../components/ui/AvatarFrame.jsx";
 import Badge from "../../components/ui/Badge.jsx";
 import GlassCard from "../../components/ui/GlassCard.jsx";
 
-export default function ProfileHero({ user }) {
+export default function ProfileHero({ user, appearance }) {
   const displayName =
     user.display_name || user.telegram_first_name || user.email?.split("@")[0] || "Ботяра";
+  const frame = appearance ? appearance.preview.avatar_frame : user.avatar_frame;
+  const nameColor = appearance ? appearance.preview.name_color : user.name_color;
+  const badge = appearance ? appearance.preview.title : user.badge;
 
   return (
     <header className="profile-premium-hero">
@@ -17,7 +20,7 @@ export default function ProfileHero({ user }) {
         </span>
 
         <div className="profile-premium-hero__identity">
-          <AvatarFrame frame={user.avatar_frame}>
+          <AvatarFrame frame={frame}>
             <Avatar
               src={user.avatar_base64}
               name={displayName}
@@ -28,9 +31,9 @@ export default function ProfileHero({ user }) {
           </AvatarFrame>
 
           <div className="profile-premium-hero__identity-copy">
-            <strong style={user.name_color ? { color: user.name_color } : undefined}>{displayName}</strong>
-            {user.badge?.text ? (
-              <Badge size="sm" style={{ color: user.badge.color }}>{user.badge.text}</Badge>
+            <strong style={nameColor ? { color: nameColor } : undefined}>{displayName}</strong>
+            {badge?.text ? (
+              <Badge size="sm" style={{ color: badge.color }}>{badge.text}</Badge>
             ) : null}
             {typeof user.level === "number" && (
               <p>

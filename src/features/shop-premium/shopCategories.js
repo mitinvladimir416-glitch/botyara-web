@@ -22,13 +22,3 @@ export function categoryFor(key) {
 export function isConsumable(item) {
   return categoryFor(item?.category).kind === "consumable" || item?.xp_amount != null;
 }
-
-// Сверяет предмет каталога/инвентаря с текущей экипировкой пользователя
-// ({ frame, name_color, title } из user.avatar_frame/name_color/badge.text).
-export function isItemEquipped(item, equippedKeys) {
-  if (!item || !equippedKeys) return false;
-  if (item.category === "frame") return equippedKeys.frame === item.css_value;
-  if (item.category === "name_color") return equippedKeys.name_color === item.css_value;
-  if (item.category === "title" || item.category === "badge") return equippedKeys.title === item.badge_text;
-  return false;
-}
