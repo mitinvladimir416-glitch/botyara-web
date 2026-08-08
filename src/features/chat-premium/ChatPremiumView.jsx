@@ -532,7 +532,7 @@ export default function ChatPremiumView({ user }) {
                   send();
                 }
               }}
-              placeholder={isRecording ? "Идёт запись..." : transcribing ? "Распознаю голос..." : "Напиши сообщение сообществу..."}
+              placeholder={isRecording ? "Идёт запись..." : transcribing ? "Распознаю голос..." : "Напиши сообщение..."}
               disabled={isRecording || transcribing}
             />
             <button

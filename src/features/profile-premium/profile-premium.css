@@ -46,7 +46,7 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 0.65fr);
   align-items: center;
   gap: clamp(var(--bt-space-6), 3vw, var(--bt-space-10));
-  padding-bottom: clamp(var(--bt-space-7), 4vw, var(--bt-space-10));
+  padding-bottom: clamp(var(--bt-space-6), 4vw, var(--bt-space-10));
 }
 
 .profile-premium-hero__copy {
@@ -91,20 +91,27 @@
 }
 
 .profile-premium-hero__identity-copy p {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   margin: 0;
   color: var(--bt-color-text-secondary);
   font-size: var(--bt-font-size-sm);
+}
+
+/* Бейдж может быть сколь угодно длинным текстом — bt-badge сам не
+   ограничивает ширину (white-space: nowrap без text-overflow), обрежем здесь. */
+.profile-premium-hero__identity-copy .bt-badge {
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .profile-premium-hero__streak {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  margin-left: 0.4rem;
   color: #ffd7a9;
   font-weight: 700;
+  vertical-align: middle;
 }
 
 .profile-premium-hero__mascot {
@@ -149,6 +156,7 @@
 
 .profile-premium-workspace {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--bt-space-5);
   padding-top: var(--bt-space-6);
   border-top: 1px solid var(--bt-color-border);
@@ -205,6 +213,7 @@
 
 .profile-premium-dashboard {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--bt-space-6);
 }
 
@@ -459,6 +468,14 @@
   white-space: nowrap;
 }
 
+/* Тот же nowrap-бейдж внутри — text-overflow родителя не обрежет вложенный
+   inline-flex bt-badge, ограничиваем его отдельно (см. hero выше). */
+.profile-style-card__row-value .bt-badge {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .profile-style-card__frame-dot,
 .profile-style-card__color-dot {
   width: 1.1rem;
@@ -533,6 +550,7 @@
 
 .profile-activity-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--bt-space-2);
 }
 
@@ -553,6 +571,7 @@
 .profile-activity-item p {
   margin: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--bt-color-text-secondary);
   font-size: var(--bt-font-size-sm);
   line-height: 1.6;

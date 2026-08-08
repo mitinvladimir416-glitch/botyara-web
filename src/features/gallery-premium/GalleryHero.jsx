@@ -44,21 +44,25 @@ export default function GalleryHero({
             onSearchSubmit();
           }}
         >
-          <Search size={17} strokeWidth={1.7} aria-hidden="true" />
-          <input
-            type="text"
-            placeholder="Поиск по промптам…"
-            value={searchValue}
-            onChange={(event) => onSearchChange(event.target.value)}
-          />
-          <PremiumButton type="submit" size="sm">
-            Найти
-          </PremiumButton>
-          {activeSearch && (
-            <PremiumButton type="button" variant="ghost" size="sm" onClick={onClearSearch}>
-              Сбросить
+          <span className="gallery-premium-hero__search-field">
+            <Search size={17} strokeWidth={1.7} aria-hidden="true" />
+            <input
+              type="text"
+              placeholder="Поиск по промптам…"
+              value={searchValue}
+              onChange={(event) => onSearchChange(event.target.value)}
+            />
+          </span>
+          <span className="gallery-premium-hero__search-actions">
+            <PremiumButton type="submit" size="sm">
+              Найти
             </PremiumButton>
-          )}
+            {activeSearch && (
+              <PremiumButton type="button" variant="ghost" size="sm" onClick={onClearSearch}>
+                Сбросить
+              </PremiumButton>
+            )}
+          </span>
         </form>
 
         <div className="gallery-premium-hero__stats" aria-label="Статистика галереи">

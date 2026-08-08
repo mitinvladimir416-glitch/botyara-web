@@ -31,6 +31,7 @@ import AuthScreen from "./features/auth/AuthScreen.jsx";
 import PremiumHomeView from "./features/home/HomeView.jsx";
 import PromptStudioView from "./features/prompts-premium/PromptStudioView.jsx";
 import ChatPremiumView from "./features/chat-premium/ChatPremiumView.jsx";
+import AIChatPremiumView from "./features/ai-chat-premium/AIChatPremiumView.jsx";
 import GalleryPremiumView from "./features/gallery-premium/GalleryPremiumView.jsx";
 import ShopPremiumView from "./features/shop-premium/ShopPremiumView.jsx";
 import ProfilePremiumView from "./features/profile-premium/ProfilePremiumView.jsx";
@@ -60,17 +61,23 @@ const CATEGORY_LABELS = {
 const AUTHOR_TELEGRAM_URL = "https://t.me/Tipo4ek31";
 const AUTHOR_EMAIL = "mitinvladimir416@gmail.com";
 
+const VIEW_MODE_SESSION_KEY = "botyara_view_mode_session";
+const detectViewMode = () => (window.innerWidth < 768 ? "mobile" : "desktop");
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState(() =>
     new URLSearchParams(window.location.search).get("room") ? "rooms" : "home"
   );
+  // Ручной выбор вида живёт только в рамках вкладки (sessionStorage), а не навсегда —
+  // иначе один тап по "Версия для ПК" на телефоне залипал бы на всех будущих визитах.
   const [viewMode, setViewMode] = useState(() => {
-    const saved = localStorage.getItem("botyara_view_mode");
-    if (saved === "mobile" || saved === "desktop") return saved;
-    return window.innerWidth <= 780 ? "mobile" : "desktop";
+    localStorage.removeItem("botyara_view_mode");
+    const sessionOverride = sessionStorage.getItem(VIEW_MODE_SESSION_KEY);
+    return sessionOverride === "mobile" || sessionOverride === "desktop" ? sessionOverride : detectViewMode();
   });
+  const hasManualViewModeRef = useRef(sessionStorage.getItem(VIEW_MODE_SESSION_KEY) !== null);
   const [profileUserId, setProfileUserId] = useState(null);
   const [showPromo, setShowPromo] = useState(false);
 
@@ -106,7 +113,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("botyara_view_mode", viewMode);
     document.documentElement.classList.remove("force-mobile", "force-desktop");
     document.documentElement.classList.add(viewMode === "mobile" ? "force-mobile" : "force-desktop");
 
@@ -125,8 +131,23 @@ export default function App() {
     }
   }, [viewMode]);
 
+  // Пересчитываем режим при resize/повороте экрана — но только если пользователь
+  // ещё не переключал вручную в этой сессии (иначе не дёргаем layout под ним).
+  useEffect(() => {
+    function handleResize() {
+      if (!hasManualViewModeRef.current) setViewMode(detectViewMode());
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   function toggleViewMode() {
-    setViewMode((m) => (m === "mobile" ? "desktop" : "mobile"));
+    setViewMode((m) => {
+      const next = m === "mobile" ? "desktop" : "mobile";
+      hasManualViewModeRef.current = true;
+      sessionStorage.setItem(VIEW_MODE_SESSION_KEY, next);
+      return next;
+    });
   }
 
   const handleAuthed = (data) => {
@@ -187,6 +208,12 @@ export default function App() {
       ? "prompts"
       : activeTab;
 
+  // На узком экране плавающая кнопка ChatWidget геометрически перекрывает
+  // кнопку "Отправить" композера AI-чата (см. Чекпоинт 6.2, проверено через
+  // getBoundingClientRect на 360/390/430). На desktop и на остальных страницах
+  // перекрытия нет — там ChatWidget оставляем как есть.
+  const chatWidgetBlockedByMobileAIChat = viewMode === "mobile" && activeTab === "chat";
+
   return (
     <AppShell
       active={shellActive}
@@ -206,9 +233,18 @@ export default function App() {
       topbar={<TopBar />}
       overlays={
         <>
-          {activeTab !== "admin" && !isChatPremiumPreview && (
-            <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
-          )}
+          {/* ChatWidget — быстрый доступ к общему чату поверх обычных страниц.
+              На AI-чате его не прячем везде: это другая функция (общий чат
+              людей vs личный диалог с ассистентом), они не дублируют друг
+              друга. Прячем только на мобильном виде AI-чата — там bubble
+              геометрически перекрывает кнопку "Отправить" композера. */}
+          {activeTab !== "admin" &&
+            !isChatPremiumPreview &&
+            !profileUserId &&
+            !showPromo &&
+            !chatWidgetBlockedByMobileAIChat && (
+              <ChatWidget isAdmin={user.is_moderator} isMobile={viewMode === "mobile"} currentUserId={user.id} />
+            )}
           {profileUserId && <PublicProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
           {showPromo && <PromoModal onClose={() => setShowPromo(false)} />}
         </>
@@ -239,7 +275,7 @@ export default function App() {
             ? <HomeView user={user} onNavigate={setActiveTab} />
             : <PremiumHomeView user={user} onNavigate={setActiveTab} />
         )}
-        {activeTab === "chat" && (isLegacyPreview ? <ChatView /> : <ChatPremiumView user={user} />)}
+        {activeTab === "chat" && (isLegacyPreview ? <ChatView /> : <AIChatPremiumView />)}
         {activeTab === "translate" && <TranslateView />}
         {activeTab === "prompts" && (isLegacyPreview ? <PromptsView /> : <PromptStudioView />)}
         {activeTab === "cover" && <CoverView />}

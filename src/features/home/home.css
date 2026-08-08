@@ -1454,7 +1454,7 @@
   grid-template-columns: 1fr;
   gap: var(--bt-space-5);
   min-height: 0;
-  padding: clamp(var(--bt-space-5), 2.5vw, var(--bt-space-7));
+  padding: clamp(var(--bt-space-5), 2.5vw, var(--bt-space-6));
   background:
     radial-gradient(circle at 12% 0%, rgb(143 92 246 / 0.16), transparent 35%),
     linear-gradient(145deg, rgb(22 22 45 / 0.98), rgb(8 9 23 / 0.99));
@@ -1509,7 +1509,7 @@
 }
 
 .premium-home__workspace .premium-home-universe {
-  padding: clamp(var(--bt-space-5), 2.5vw, var(--bt-space-7));
+  padding: clamp(var(--bt-space-5), 2.5vw, var(--bt-space-6));
 }
 
 .premium-home__workspace .premium-home-universe .premium-home-section__heading {
@@ -1555,7 +1555,7 @@
       "level"
       "actions"
       "universe";
-    gap: var(--bt-space-7);
+    gap: var(--bt-space-6);
   }
 
   .premium-home__workspace .premium-home-hero {
@@ -1824,7 +1824,7 @@
 
 .premium-home__workspace {
   grid-template-columns: minmax(0, 1.8fr) minmax(20rem, 0.72fr);
-  gap: clamp(var(--bt-space-6), 2.2vw, var(--bt-space-9));
+  gap: clamp(var(--bt-space-6), 2.2vw, var(--bt-space-8));
 }
 
 .premium-home__workspace .premium-home-hero {
@@ -1842,7 +1842,7 @@
 .premium-home__workspace .premium-home-hero__copy {
   z-index: 3;
   width: min(48%, 31rem);
-  padding: clamp(var(--bt-space-7), 5vw, var(--bt-space-12)) 0;
+  padding: clamp(var(--bt-space-6), 5vw, var(--bt-space-12)) 0;
 }
 
 .premium-home__workspace .premium-home-hero__copy h1 {
@@ -1890,7 +1890,7 @@
   min-height: 0;
   aspect-ratio: 1;
   border-radius: 50%;
-  padding: clamp(var(--bt-space-7), 3vw, var(--bt-space-10));
+  padding: clamp(var(--bt-space-6), 3vw, var(--bt-space-10));
   background:
     radial-gradient(circle at 38% 28%, rgb(255 255 255 / 0.14), transparent 13%),
     radial-gradient(circle at 50% 46%, rgb(117 72 208 / 0.14), transparent 48%),
@@ -2097,7 +2097,7 @@
   }
 
   .premium-home__workspace {
-    gap: var(--bt-space-7);
+    gap: var(--bt-space-6);
   }
 
   .premium-home__workspace .premium-home-hero {
@@ -2140,7 +2140,7 @@
   .premium-home__workspace .premium-home-hero__copy {
     order: 2;
     width: 100%;
-    padding: var(--bt-space-7) 0 0;
+    padding: var(--bt-space-6) 0 0;
     text-align: center;
   }
 
@@ -2260,7 +2260,7 @@
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
-    padding: var(--bt-space-3) 0 var(--bt-space-7);
+    padding: var(--bt-space-3) 0 var(--bt-space-6);
   }
 
   .premium-home__workspace .premium-home-ai-object {
@@ -2272,9 +2272,9 @@
     left: auto;
     display: grid;
     order: 1;
-    width: clamp(12.5rem, 58vw, 15rem);
-    max-width: 15rem;
-    min-width: 12.5rem;
+    width: clamp(8.5rem, 38vw, 10rem);
+    max-width: 10rem;
+    min-width: 8.5rem;
     min-height: 0;
     aspect-ratio: 1;
     flex: 0 0 auto;
@@ -2286,8 +2286,8 @@
   }
 
   .premium-home__workspace .premium-home-ai-object .premium-home-core {
-    width: clamp(7.5rem, 34vw, 9rem);
-    max-width: 9rem;
+    width: clamp(5rem, 22vw, 6rem);
+    max-width: 6rem;
     min-width: 0;
     transform: none;
   }
@@ -2318,8 +2318,8 @@
   }
 
   .premium-home__workspace .premium-home-hero__copy h1 {
-    font-size: clamp(2.25rem, 11vw, 3.15rem);
-    line-height: 1;
+    font-size: clamp(1.5rem, 6.5vw, 2rem);
+    line-height: 1.15;
   }
 
   .premium-home-hero__copy .premium-home-hero__personal,

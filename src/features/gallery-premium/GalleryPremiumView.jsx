@@ -107,7 +107,7 @@ export default function GalleryPremiumView({ isAdmin = false }) {
 
         <GalleryGrid
           posts={visiblePosts}
-          loading={posts === null}
+          loading={posts === null && !loadError}
           error={loadError}
           onOpenPost={openPost}
           onReact={reactToPost}

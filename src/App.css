@@ -659,6 +659,7 @@ textarea::placeholder {
   font-size: 14px;
   line-height: 1.5;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* ==================== Адаптив (запасной вариант по ширине экрана) ==================== */
@@ -825,7 +826,7 @@ textarea::placeholder {
   position: fixed;
   bottom: 22px;
   right: 22px;
-  z-index: 60;
+  z-index: var(--bt-z-raised, 60);
 }
 
 .chat-widget-bubble {
@@ -2432,13 +2433,15 @@ textarea::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: var(--bt-z-dropdown, 200);
   padding: 20px;
 }
 
 .bot-login-modal {
   width: 100%;
   max-width: 360px;
+  max-height: calc(100dvh - 3rem);
+  overflow-y: auto;
   background: var(--bg-surface);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);

@@ -57,83 +57,85 @@ export default function ActivityFeed({
         )}
       </div>
 
-      {loading ? (
-        <div className="premium-home-activity__loading" aria-label="Загрузка вселенной BOTYARA">
-          {[0, 1, 2].map((item) => <span key={item} />)}
-        </div>
-      ) : error ? (
-        <div className="premium-home-empty" role="status">
-          <span><CircleAlert size={23} strokeWidth={1.5} /></span>
-          <div>
-            <strong>Не удалось загрузить события</strong>
-            <p>{error}</p>
-          </div>
-          <PremiumButton variant="ghost" size="sm" leadingIcon={<RefreshCw size={16} strokeWidth={1.5} />} onClick={onRetry}>
-            Повторить
-          </PremiumButton>
-        </div>
-      ) : (
-        <div className="premium-home-universe__grid">
-          <article className="premium-home-universe__activity">
-            <h3>Активность</h3>
-            {recentActivity.length > 0 ? (
-              <div className="premium-home-activity__list">
-                {recentActivity.map((item) => (
-                  <UniverseActivityItem key={item.id} item={item} onOpen={onOpenNotifications} />
+      <div className="premium-home-universe__grid">
+        <article className="premium-home-universe__activity">
+          <h3>Активность</h3>
+          {loading ? (
+            <div className="premium-home-activity__loading" aria-label="Загрузка вселенной BOTYARA">
+              {[0, 1, 2].map((item) => <span key={item} />)}
+            </div>
+          ) : error ? (
+            <div className="premium-home-empty" role="status">
+              <span><CircleAlert size={23} strokeWidth={1.5} /></span>
+              <div>
+                <strong>Не удалось загрузить события</strong>
+                <p>{error}</p>
+              </div>
+              <PremiumButton variant="ghost" size="sm" leadingIcon={<RefreshCw size={16} strokeWidth={1.5} />} onClick={onRetry}>
+                Повторить
+              </PremiumButton>
+            </div>
+          ) : recentActivity.length > 0 ? (
+            <div className="premium-home-activity__list">
+              {recentActivity.map((item) => (
+                <UniverseActivityItem key={item.id} item={item} onOpen={onOpenNotifications} />
+              ))}
+            </div>
+          ) : (
+            <UniverseEmpty icon={Sparkles} title="Твоя история BOTYARA только начинается">
+              Создай первую идею, и здесь появятся события твоей вселенной.
+            </UniverseEmpty>
+          )}
+        </article>
+
+        <div className="premium-home-universe__side">
+          <article>
+            <h3>Достижения</h3>
+            {loading ? (
+              <div className="premium-home-activity__loading" aria-label="Загрузка достижений">
+                <span />
+              </div>
+            ) : achievements.length > 0 ? (
+              <div className="premium-home-achievements">
+                {achievements.slice(0, 2).map((achievement) => (
+                  <div key={achievement.key}>
+                    <span><Trophy size={18} strokeWidth={1.5} /></span>
+                    <p><strong>{achievement.label}</strong><small>{achievement.desc}</small></p>
+                  </div>
                 ))}
               </div>
             ) : (
-              <UniverseEmpty icon={Sparkles} title="Твоя история BOTYARA только начинается">
-                Создай первую идею, и здесь появятся события твоей вселенной.
+              <UniverseEmpty icon={Trophy} title="Всё впереди">
+                Исследуй BOTYARA и открывай награды.
               </UniverseEmpty>
             )}
           </article>
 
-          <div className="premium-home-universe__side">
-            <article>
-              <h3>Достижения</h3>
-              {achievements.length > 0 ? (
-                <div className="premium-home-achievements">
-                  {achievements.slice(0, 2).map((achievement) => (
-                    <div key={achievement.key}>
-                      <span><Trophy size={18} strokeWidth={1.5} /></span>
-                      <p><strong>{achievement.label}</strong><small>{achievement.desc}</small></p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <UniverseEmpty icon={Trophy} title="Всё впереди">
-                  Исследуй BOTYARA и открывай награды.
-                </UniverseEmpty>
-              )}
-            </article>
-
-            <article>
-              <h3>Твой ритм</h3>
-              {hasProgress ? (
-                <div className="premium-home-progress-pulse">
-                  {Number(streak) > 0 && (
-                    <div>
-                      <span><Flame size={18} strokeWidth={1.5} /></span>
-                      <p><strong>{streak} дней подряд</strong><small>Текущая серия активности</small></p>
-                    </div>
-                  )}
-                  {Number(level) > 0 && (
-                    <div>
-                      <span><Sparkles size={18} strokeWidth={1.5} /></span>
-                      <p><strong>Уровень {level}</strong><small>{levelTitle || "Исследователь идей"}</small></p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <UniverseEmpty icon={Flame} title="Набирай свой ритм">
-                  Серия активности и новые уровни появятся здесь.
-                </UniverseEmpty>
-              )}
-            </article>
-          </div>
+          <article>
+            <h3>Твой ритм</h3>
+            {hasProgress ? (
+              <div className="premium-home-progress-pulse">
+                {Number(streak) > 0 && (
+                  <div>
+                    <span><Flame size={18} strokeWidth={1.5} /></span>
+                    <p><strong>{streak} дней подряд</strong><small>Текущая серия активности</small></p>
+                  </div>
+                )}
+                {Number(level) > 0 && (
+                  <div>
+                    <span><Sparkles size={18} strokeWidth={1.5} /></span>
+                    <p><strong>Уровень {level}</strong><small>{levelTitle || "Исследователь идей"}</small></p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <UniverseEmpty icon={Flame} title="Набирай свой ритм">
+                Серия активности и новые уровни появятся здесь.
+              </UniverseEmpty>
+            )}
+          </article>
         </div>
-      )}
+      </div>
     </section>
   );
 }

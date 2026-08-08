@@ -441,9 +441,16 @@
 }
 
 .chat-premium-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(15.5rem, 0.34fr);
   gap: var(--bt-space-4);
   padding-top: var(--bt-space-5);
+}
+
+/* Вторая колонка (подсказки/поиск) только там, где реально есть место —
+   иначе это правило без media-запроса перебивало мобильный collapse ниже. */
+@media (min-width: 72.01rem) {
+  .chat-premium-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(15.5rem, 0.34fr);
+  }
 }
 
 .chat-premium-panel {
@@ -534,8 +541,13 @@
   width: 4rem;
 }
 
-.bt-app-shell--mobile .chat-premium-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.28fr);
+/* Тот же принцип: вторая колонка в принудительном mobile-режиме — только
+   если экран реально широкий (иначе .bt-app-shell--mobile стоит и на
+   настоящих телефонах, и там эта колонка ломает раскладку). */
+@media (min-width: 72.01rem) {
+  .bt-app-shell--mobile .chat-premium-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.28fr);
+  }
 }
 
 .bt-app-shell--mobile .chat-premium-messages {
